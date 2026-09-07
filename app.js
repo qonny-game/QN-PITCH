@@ -22,11 +22,15 @@
     return name + octave;
   }
 
-  // ---------- 音域プリセット（全体の可動域。表示は一部だけを切り出し縦スクロール） ----------
+  // ---------- 音域プリセット ----------
+  // キャンバス・鍵盤ラベルは常にFULL_RANGE（全音域）を保持し、上下スクロールで
+  // どこでも確認できるようにする。RANGESの選択は「スクロールの初期位置」を
+  // 決めるだけで、表示できる範囲そのものを制限するわけではない。
+  const FULL_RANGE = { min: 24, max: 108 }; // C1 - C8（一般的な楽器・声域を広くカバー）
   const RANGES = [
-    { id: 'wide',   label: 'WIDE',   min: 36, max: 96 },  // C2 - C7
-    { id: 'vocal',  label: 'VOCAL',  min: 45, max: 81 },  // A2 - A5
-    { id: 'narrow', label: 'NARROW', min: 60, max: 72 },  // C4 - C5
+    { id: 'wide',   label: 'WIDE',   min: 36, max: 96 },  // C2 - C7 の中心へスクロール
+    { id: 'vocal',  label: 'VOCAL',  min: 45, max: 81 },  // A2 - A5 の中心へスクロール
+    { id: 'narrow', label: 'NARROW', min: 60, max: 72 },  // C4 - C5 の中心へスクロール
   ];
   let currentRange = RANGES[1];
 
@@ -79,7 +83,7 @@
   let initialBufferSec = 30;
 
   function totalRows() {
-    return currentRange.max - currentRange.min + 1;
+    return FULL_RANGE.max - FULL_RANGE.min + 1;
   }
 
   function setupSize() {
@@ -96,7 +100,7 @@
 
     rollKeys.style.height = panelHeight + 'px';
     rollKeys.innerHTML = '';
-    for (let m = currentRange.min; m <= currentRange.max; m++) {
+    for (let m = FULL_RANGE.min; m <= FULL_RANGE.max; m++) {
       const y = midiToY(m);
       const noteName = NOTE_NAMES[((m % 12) + 12) % 12];
       const isSharp = noteName.includes('#');
@@ -111,14 +115,25 @@
     rollKeys.scrollTop = rollScroll.scrollTop;
   }
 
+  // レンジ選択時：その範囲の中心の音がパネル中央に来るよう縦スクロールを移動
+  function scrollToRange(range) {
+    const panelHeight = rollScroll.parentElement.clientHeight || 320;
+    const centerMidi = (range.min + range.max) / 2;
+    const centerY = midiToY(centerMidi);
+    const target = centerY - panelHeight / 2 + ROW_HEIGHT / 2;
+    const maxScroll = canvasHeight - panelHeight;
+    rollScroll.scrollTop = Math.max(0, Math.min(maxScroll, target));
+    rollKeys.scrollTop = rollScroll.scrollTop;
+  }
+
   function midiToY(midi) {
-    const clamped = Math.max(currentRange.min, Math.min(currentRange.max, midi));
-    return (currentRange.max - clamped) * ROW_HEIGHT;
+    const clamped = Math.max(FULL_RANGE.min, Math.min(FULL_RANGE.max, midi));
+    return (FULL_RANGE.max - clamped) * ROW_HEIGHT;
   }
 
   function drawBackground() {
     ctx.clearRect(0, 0, canvasWidth, canvasHeight);
-    for (let m = currentRange.min; m <= currentRange.max; m++) {
+    for (let m = FULL_RANGE.min; m <= FULL_RANGE.max; m++) {
       const y = midiToY(m);
       const noteName = NOTE_NAMES[((m % 12) + 12) % 12];
       const isSharp = noteName.includes('#');
@@ -476,8 +491,7 @@
         currentRange = r;
         rangeBtnLabel.textContent = r.label;
         renderRangeGrid();
-        setupSize();
-        redraw();
+        scrollToRange(r);
       });
       rangeGrid.appendChild(cell);
     });
@@ -744,5 +758,6 @@
 
   setupSize();
   redraw();
+  scrollToRange(currentRange);
   refreshRecList();
 })();

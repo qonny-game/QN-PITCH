@@ -101,13 +101,8 @@ body {
 
 .header-btn-wrapper { position: relative; }
 
-#qnNavGroup {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-}
-
-.qn-nav-btn {
+/* ---------- QN Apps hamburger menu ---------- */
+.qn-nav-hamburger {
   display: flex;
   align-items: center;
   justify-content: center;
@@ -119,42 +114,71 @@ body {
   border-radius: 12px;
   cursor: pointer;
   color: #f0f0f3;
-  text-decoration: none;
   transition: background var(--dur-hover) var(--ease-snap), border-color var(--dur-hover) var(--ease-snap), color var(--dur-hover) var(--ease-snap), transform var(--dur-press) var(--ease-snap);
 }
-
-.qn-nav-btn svg {
-  width: 18px;
-  height: 18px;
-  fill: currentColor;
-  flex-shrink: 0;
-}
-
-.qn-nav-btn span {
-  display: none;
-}
-
-.qn-nav-btn:hover {
+.qn-nav-hamburger svg { width: 20px; height: 20px; fill: currentColor; flex-shrink: 0; }
+.qn-nav-hamburger:hover {
   background: #1c1c24;
   border-color: var(--accent-primary);
   color: var(--accent-primary);
 }
-
-.qn-nav-btn:active {
-  transform: scale(0.96);
-}
-
-/* 現在開いているアプリ自身へのリンク：アイコンは見えるがクリックできず、
-   「今ここにいる」ことが分かる表示になる */
-.qn-nav-btn.current {
-  cursor: default;
+.qn-nav-hamburger:active { transform: scale(0.96); }
+.qn-nav-hamburger.active {
   color: var(--accent-primary);
   border-color: var(--accent-primary);
   background: var(--accent-glow);
 }
 
-.qn-nav-btn.current:hover {
-  transform: none;
+.qn-nav-dropdown {
+  display: none;
+  position: absolute;
+  top: 48px;
+  left: 0;
+  z-index: 210;
+  min-width: 160px;
+  padding: 6px;
+  background: #16161b;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 14px;
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.5);
+  flex-direction: column;
+  gap: 2px;
+  opacity: 0;
+  transform: translateY(-6px);
+  transition: opacity var(--dur-open) var(--ease-dismiss), transform var(--dur-open) var(--ease-dismiss);
+}
+.qn-nav-dropdown.open {
+  display: flex;
+  opacity: 1;
+  transform: translateY(0);
+  transition: opacity var(--dur-open) var(--ease-pop), transform var(--dur-open) var(--ease-pop);
+}
+
+.qn-nav-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  cursor: pointer;
+  color: #c8c8d0;
+  text-decoration: none;
+  font-family: var(--font-display, 'Outfit'), sans-serif;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  transition: background var(--dur-hover) var(--ease-snap), color var(--dur-hover) var(--ease-snap);
+}
+.qn-nav-item svg { width: 16px; height: 16px; fill: currentColor; flex-shrink: 0; }
+.qn-nav-item:hover { background: #1c1c24; color: var(--accent-primary); }
+.qn-nav-item:active { transform: scale(0.98); }
+
+/* 現在開いているアプリ自身の項目：クリックできず、「今ここにいる」ことが分かる表示になる */
+.qn-nav-item.current {
+  cursor: default;
+  color: var(--accent-primary);
+  background: var(--accent-glow);
+  pointer-events: none;
 }
 
 #rangeBtn, #listBtn {
