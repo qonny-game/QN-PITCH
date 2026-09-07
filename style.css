@@ -361,12 +361,6 @@ body {
 .stage-hint.live { color: var(--good); }
 
 /* ---------- Recordings list modal (LIST button opens this) ---------- */
-.rec-list-popup {
-  max-height: 70vh;
-  display: flex;
-  flex-direction: column;
-}
-
 .rec-list-scroll {
   flex: 1;
   min-height: 0;
@@ -574,6 +568,16 @@ body {
   opacity: 1;
   transform: translateY(0);
   transition: opacity var(--dur-open) var(--ease-pop), transform var(--dur-open) var(--ease-pop);
+}
+
+/* 録音一覧モーダルは中身をスクロールさせたいのでblockではなくflexで開く。
+   .av-popup.openと同じ詳細度だが、こちらを後方に置くことで確実に上書きする。 */
+.rec-list-popup {
+  max-height: 70vh;
+}
+.rec-list-popup.open {
+  display: flex;
+  flex-direction: column;
 }
 
 .av-popup-backdrop {
