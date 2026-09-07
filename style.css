@@ -455,9 +455,11 @@ body {
   font-family: var(--font-display, 'Outfit'), sans-serif;
   font-size: 13px;
   font-weight: 700;
+  line-height: 1.2;
   letter-spacing: 0.5px;
   text-transform: uppercase;
   cursor: pointer;
+  box-sizing: border-box;
 }
 .save-cancel-btn:active { transform: scale(0.97); background: rgba(239, 68, 68, 0.1); color: #ef4444; }
 .save-ok-btn { flex: 1; margin-top: 0; }
@@ -709,11 +711,13 @@ body {
   font-family: var(--font-display, 'Outfit'), sans-serif;
   font-size: 13px;
   font-weight: 700;
+  line-height: 1.2;
   letter-spacing: 0.5px;
   text-transform: uppercase;
   cursor: pointer;
   box-shadow: 0 6px 20px var(--accent-glow);
   transition: transform var(--dur-press) var(--ease-snap);
+  box-sizing: border-box;
 }
 .popup-close-btn:active { transform: scale(0.97); }
 
