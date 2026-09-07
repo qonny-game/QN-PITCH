@@ -1,0 +1,519 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>QN PITCH ROLL — 音痴度チェック</title>
+<style>
+  :root {
+    --bg: #16161b;
+    --panel: #1c1c24;
+    --panel-2: #22222c;
+    --accent: #3b82f6;
+    --accent-dim: #3b82f633;
+    --text: #e8e8ec;
+    --text-dim: #8a8a96;
+    --line: #33333f;
+    --good: #4ade80;
+    --warn: #facc15;
+    --bad: #f87171;
+    font-family: 'Outfit', 'Plus Jakarta Sans', system-ui, sans-serif;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Outfit', 'Plus Jakarta Sans', system-ui, sans-serif;
+    padding: 20px;
+    min-height: 100vh;
+  }
+  .wrap {
+    max-width: 900px;
+    margin: 0 auto;
+  }
+  header {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    margin-bottom: 16px;
+  }
+  .logo {
+    font-size: 22px;
+    font-weight: 700;
+    letter-spacing: 0.5px;
+  }
+  .logo span { color: var(--accent); }
+  .ver {
+    font-size: 12px;
+    color: var(--text-dim);
+  }
+  .panel {
+    background: var(--panel);
+    border-radius: 14px;
+    padding: 16px;
+    margin-bottom: 14px;
+  }
+  .controls {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex-wrap: wrap;
+  }
+  button {
+    font-family: inherit;
+    font-size: 14px;
+    font-weight: 600;
+    border: none;
+    border-radius: 10px;
+    padding: 11px 20px;
+    cursor: pointer;
+    transition: filter 0.15s, transform 0.05s;
+  }
+  button:active { transform: scale(0.97); }
+  #recBtn {
+    background: var(--accent);
+    color: #fff;
+  }
+  #recBtn.recording {
+    background: var(--bad);
+  }
+  #recBtn:hover { filter: brightness(1.1); }
+  #clearBtn {
+    background: var(--panel-2);
+    color: var(--text);
+    border: 1px solid var(--line);
+  }
+  #clearBtn:hover { filter: brightness(1.2); }
+  .status {
+    font-size: 13px;
+    color: var(--text-dim);
+    margin-left: auto;
+  }
+  .status.live { color: var(--good); }
+  .readout {
+    display: flex;
+    gap: 20px;
+    align-items: center;
+    margin-top: 4px;
+  }
+  .readout .note {
+    font-size: 34px;
+    font-weight: 700;
+    min-width: 90px;
+  }
+  .readout .cents {
+    font-size: 14px;
+    color: var(--text-dim);
+  }
+  .readout .cents.good { color: var(--good); }
+  .readout .cents.warn { color: var(--warn); }
+  .readout .cents.bad { color: var(--bad); }
+  .roll-panel {
+    background: var(--panel);
+    border-radius: 14px;
+    padding: 0;
+    overflow: hidden;
+  }
+  .roll-scroll {
+    overflow-x: auto;
+    overflow-y: hidden;
+  }
+  canvas {
+    display: block;
+  }
+  .hint {
+    font-size: 12px;
+    color: var(--text-dim);
+    padding: 10px 16px;
+    border-top: 1px solid var(--line);
+  }
+  select {
+    font-family: inherit;
+    font-size: 13px;
+    background: var(--panel-2);
+    color: var(--text);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 8px 10px;
+  }
+  label.sw {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 13px;
+    color: var(--text-dim);
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div class="logo"><span>QN</span> PITCH ROLL</div>
+    <div class="ver">音痴度チェック — prototype 0.1.0</div>
+  </header>
+
+  <div class="panel">
+    <div class="controls">
+      <button id="recBtn">● 録音開始</button>
+      <button id="clearBtn">クリア</button>
+      <select id="rangeSelect">
+        <option value="wide">音域: 広め (C3–C6)</option>
+        <option value="vocal" selected>音域: ボーカル向け (A2–A5)</option>
+        <option value="narrow">音域: 狭め (C4–C5)</option>
+      </select>
+      <div class="status" id="status">マイク未接続</div>
+    </div>
+    <div class="readout">
+      <div class="note" id="noteOut">--</div>
+      <div class="cents" id="centsOut">セント: --</div>
+    </div>
+  </div>
+
+  <div class="roll-panel">
+    <div class="roll-scroll" id="rollScroll">
+      <canvas id="rollCanvas"></canvas>
+    </div>
+    <div class="hint">左に音階、時間は右へ流れます。線が音階の中心を通っていれば◎、境目付近をフラフラしていたらズレています。</div>
+  </div>
+</div>
+
+<script>
+// ===== 音階定義 =====
+const NOTE_NAMES = ['C','C#','D','D#','E','F','F#','G','G#','A','A#','B'];
+function freqToMidi(freq) {
+  return 69 + 12 * Math.log2(freq / 440);
+}
+function midiToNoteName(midi) {
+  const rounded = Math.round(midi);
+  const name = NOTE_NAMES[((rounded % 12) + 12) % 12];
+  const octave = Math.floor(rounded / 12) - 1;
+  return name + octave;
+}
+function midiToFreq(midi) {
+  return 440 * Math.pow(2, (midi - 69) / 12);
+}
+
+// 音域プリセット (MIDIノート番号)
+const RANGES = {
+  wide:   { min: 48, max: 84 },  // C3 - C6
+  vocal:  { min: 45, max: 81 },  // A2 - A5
+  narrow: { min: 60, max: 72 },  // C4 - C5
+};
+let currentRange = RANGES.vocal;
+
+// ===== キャンバス設定 =====
+const canvas = document.getElementById('rollCanvas');
+const ctx = canvas.getContext('2d');
+const rollScroll = document.getElementById('rollScroll');
+const KEY_LABEL_WIDTH = 64;
+const ROW_HEIGHT = 16; // 半音1つの高さ(px)
+const PIXELS_PER_SEC = 60; // 時間軸の速度
+
+let canvasHeight = 0;
+let totalMinutesSeconds = 30; // 初期の描画用バッファ秒数(伸長する)
+let canvasWidth = KEY_LABEL_WIDTH + PIXELS_PER_SEC * totalMinutesSeconds;
+
+function setupCanvasSize() {
+  const minMidi = currentRange.min;
+  const maxMidi = currentRange.max;
+  const numRows = (maxMidi - minMidi + 1);
+  canvasHeight = numRows * ROW_HEIGHT;
+  canvas.height = canvasHeight;
+  canvas.width = canvasWidth;
+  rollScroll.style.height = (canvasHeight + 4) + 'px';
+}
+
+function midiToY(midi) {
+  const maxMidi = currentRange.max;
+  const minMidi = currentRange.min;
+  const clamped = Math.max(minMidi, Math.min(maxMidi, midi));
+  return (maxMidi - clamped) * ROW_HEIGHT;
+}
+
+function drawKeyboardBackground() {
+  ctx.clearRect(0, 0, canvasWidth, canvasHeight);
+  const minMidi = currentRange.min;
+  const maxMidi = currentRange.max;
+
+  for (let m = minMidi; m <= maxMidi; m++) {
+    const y = midiToY(m);
+    const isSharp = NOTE_NAMES[((m % 12) + 12) % 12].includes('#');
+    const isC = NOTE_NAMES[((m % 12) + 12) % 12] === 'C';
+
+    // 行の背景色（白鍵/黒鍵っぽい帯）
+    ctx.fillStyle = isSharp ? '#1a1a22' : '#20202a';
+    ctx.fillRect(KEY_LABEL_WIDTH, y, canvasWidth - KEY_LABEL_WIDTH, ROW_HEIGHT);
+
+    // 半音境界線（薄）
+    ctx.strokeStyle = '#2c2c38';
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(KEY_LABEL_WIDTH, y);
+    ctx.lineTo(canvasWidth, y);
+    ctx.stroke();
+
+    // Cのラインは少し強調
+    if (isC) {
+      ctx.strokeStyle = '#3b82f655';
+      ctx.beginPath();
+      ctx.moveTo(KEY_LABEL_WIDTH, y);
+      ctx.lineTo(canvasWidth, y);
+      ctx.stroke();
+    }
+
+    // 左側の音名ラベル
+    ctx.fillStyle = isSharp ? '#5a5a68' : '#c8c8d2';
+    ctx.font = '11px "Outfit", sans-serif';
+    ctx.textBaseline = 'middle';
+    ctx.textAlign = 'right';
+    ctx.fillText(midiToNoteName(m), KEY_LABEL_WIDTH - 8, y + ROW_HEIGHT / 2);
+  }
+
+  // ラベル列の背景・区切り線
+  ctx.fillStyle = '#181820';
+  // 再描画で消えないよう先にラベル部分を塗ってから文字を乗せる必要があるが、
+  // 簡易実装のため区切り線のみ追加
+  ctx.strokeStyle = 'var(--line)';
+  ctx.strokeStyle = '#33333f';
+  ctx.beginPath();
+  ctx.moveTo(KEY_LABEL_WIDTH, 0);
+  ctx.lineTo(KEY_LABEL_WIDTH, canvasHeight);
+  ctx.stroke();
+}
+
+// ===== ピッチトラック描画用データ =====
+let pitchTrack = []; // { t: seconds, midi: number, cents: number, voiced: bool }
+let startTime = 0;
+
+function redrawAll() {
+  drawKeyboardBackground();
+  if (pitchTrack.length < 2) return;
+
+  ctx.lineWidth = 2.5;
+  ctx.lineCap = 'round';
+  ctx.beginPath();
+  let started = false;
+  for (let i = 0; i < pitchTrack.length; i++) {
+    const p = pitchTrack[i];
+    if (!p.voiced) { started = false; continue; }
+    const x = KEY_LABEL_WIDTH + p.t * PIXELS_PER_SEC;
+    const y = midiToY(p.midi);
+    if (!started) {
+      ctx.moveTo(x, y);
+      started = true;
+    } else {
+      ctx.lineTo(x, y);
+    }
+  }
+  // 色はセント差の平均などで変えず、シンプルに accent 色で統一（見やすさ優先）
+  ctx.strokeStyle = '#3b82f6';
+  ctx.stroke();
+
+  // 各点にドット（ズレ具合で色分け）
+  for (let i = 0; i < pitchTrack.length; i++) {
+    const p = pitchTrack[i];
+    if (!p.voiced) continue;
+    const x = KEY_LABEL_WIDTH + p.t * PIXELS_PER_SEC;
+    const y = midiToY(p.midi);
+    const absCents = Math.abs(p.cents);
+    let color = '#4ade80';
+    if (absCents > 30) color = '#f87171';
+    else if (absCents > 12) color = '#facc15';
+    ctx.fillStyle = color;
+    ctx.beginPath();
+    ctx.arc(x, y, 1.6, 0, Math.PI * 2);
+    ctx.fill();
+  }
+}
+
+function ensureCanvasWidth(tSeconds) {
+  const neededWidth = KEY_LABEL_WIDTH + (tSeconds + 5) * PIXELS_PER_SEC;
+  if (neededWidth > canvasWidth) {
+    canvasWidth = neededWidth;
+    setupCanvasSize();
+    // リサイズ後は再描画に任せる（drawKeyboardBackgroundがclearするので再構築）
+    redrawAll();
+  }
+}
+
+// ===== ピッチ検出 (自己相関法) =====
+let audioCtx = null;
+let analyser = null;
+let mediaStream = null;
+let sourceNode = null;
+let rafId = null;
+let recording = false;
+
+const noteOut = document.getElementById('noteOut');
+const centsOut = document.getElementById('centsOut');
+const statusEl = document.getElementById('status');
+const recBtn = document.getElementById('recBtn');
+const clearBtn = document.getElementById('clearBtn');
+const rangeSelect = document.getElementById('rangeSelect');
+
+function autoCorrelate(buf, sampleRate) {
+  // 簡易的な自己相関ベースのピッチ検出（チューナー等でよく使われる手法）
+  const SIZE = buf.length;
+  let rms = 0;
+  for (let i = 0; i < SIZE; i++) {
+    const val = buf[i];
+    rms += val * val;
+  }
+  rms = Math.sqrt(rms / SIZE);
+  if (rms < 0.01) return -1; // 無音判定
+
+  let r1 = 0, r2 = SIZE - 1, thres = 0.2;
+  for (let i = 0; i < SIZE / 2; i++) {
+    if (Math.abs(buf[i]) < thres) { r1 = i; break; }
+  }
+  for (let i = 1; i < SIZE / 2; i++) {
+    if (Math.abs(buf[SIZE - i]) < thres) { r2 = SIZE - i; break; }
+  }
+  const trimmedBuf = buf.slice(r1, r2);
+  const newSize = trimmedBuf.length;
+
+  const c = new Array(newSize).fill(0);
+  for (let i = 0; i < newSize; i++) {
+    for (let j = 0; j < newSize - i; j++) {
+      c[i] += trimmedBuf[j] * trimmedBuf[j + i];
+    }
+  }
+
+  let d = 0;
+  while (d < newSize - 1 && c[d] > c[d + 1]) d++;
+
+  let maxVal = -1, maxPos = -1;
+  for (let i = d; i < newSize; i++) {
+    if (c[i] > maxVal) {
+      maxVal = c[i];
+      maxPos = i;
+    }
+  }
+  let T0 = maxPos;
+
+  if (T0 <= 0) return -1;
+
+  // パラボラ補間で精度を上げる
+  const x1 = c[T0 - 1] || c[T0];
+  const x2 = c[T0];
+  const x3 = c[T0 + 1] || c[T0];
+  const a = (x1 + x3 - 2 * x2) / 2;
+  const b = (x3 - x1) / 2;
+  if (a) T0 = T0 - b / (2 * a);
+
+  const freq = sampleRate / T0;
+  if (freq < 50 || freq > 1200) return -1;
+  return freq;
+}
+
+async function startMic() {
+  audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  mediaStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+  sourceNode = audioCtx.createMediaStreamSource(mediaStream);
+  analyser = audioCtx.createAnalyser();
+  analyser.fftSize = 2048;
+  sourceNode.connect(analyser);
+  statusEl.textContent = 'マイク接続 OK';
+}
+
+function stopMic() {
+  if (mediaStream) {
+    mediaStream.getTracks().forEach(t => t.stop());
+    mediaStream = null;
+  }
+  if (audioCtx) {
+    audioCtx.close();
+    audioCtx = null;
+  }
+  statusEl.textContent = 'マイク未接続';
+  statusEl.classList.remove('live');
+}
+
+function analyzeLoop() {
+  if (!recording || !analyser) return;
+  const buf = new Float32Array(analyser.fftSize);
+  analyser.getFloatTimeDomainData(buf);
+  const freq = autoCorrelate(buf, audioCtx.sampleRate);
+
+  const t = (performance.now() - startTime) / 1000;
+
+  if (freq > 0) {
+    const midi = freqToMidi(freq);
+    const roundedMidi = Math.round(midi);
+    const cents = Math.round((midi - roundedMidi) * 100);
+    const noteName = midiToNoteName(midi);
+
+    noteOut.textContent = noteName;
+    const absCents = Math.abs(cents);
+    let centsClass = 'good';
+    if (absCents > 30) centsClass = 'bad';
+    else if (absCents > 12) centsClass = 'warn';
+    centsOut.className = 'cents ' + centsClass;
+    centsOut.textContent = `セント: ${cents > 0 ? '+' : ''}${cents}`;
+
+    pitchTrack.push({ t, midi, cents, voiced: true });
+  } else {
+    noteOut.textContent = '--';
+    centsOut.className = 'cents';
+    centsOut.textContent = 'セント: --';
+    pitchTrack.push({ t, midi: 0, cents: 0, voiced: false });
+  }
+
+  ensureCanvasWidth(t);
+  redrawAll();
+
+  // 自動スクロール（右端に追従）
+  rollScroll.scrollLeft = KEY_LABEL_WIDTH + t * PIXELS_PER_SEC - rollScroll.clientWidth + 120;
+
+  rafId = requestAnimationFrame(analyzeLoop);
+}
+
+recBtn.addEventListener('click', async () => {
+  if (!recording) {
+    try {
+      if (!audioCtx) await startMic();
+      recording = true;
+      startTime = performance.now() - (pitchTrack.length ? pitchTrack[pitchTrack.length - 1].t * 1000 : 0);
+      recBtn.textContent = '■ 停止';
+      recBtn.classList.add('recording');
+      statusEl.textContent = '録音中...';
+      statusEl.classList.add('live');
+      analyzeLoop();
+    } catch (err) {
+      statusEl.textContent = 'マイクアクセスが拒否されました';
+      console.error(err);
+    }
+  } else {
+    recording = false;
+    cancelAnimationFrame(rafId);
+    recBtn.textContent = '● 録音開始';
+    recBtn.classList.remove('recording');
+    statusEl.textContent = '一時停止中';
+    statusEl.classList.remove('live');
+  }
+});
+
+clearBtn.addEventListener('click', () => {
+  pitchTrack = [];
+  canvasWidth = KEY_LABEL_WIDTH + PIXELS_PER_SEC * totalMinutesSeconds;
+  setupCanvasSize();
+  redrawAll();
+  noteOut.textContent = '--';
+  centsOut.className = 'cents';
+  centsOut.textContent = 'セント: --';
+  rollScroll.scrollLeft = 0;
+});
+
+rangeSelect.addEventListener('change', (e) => {
+  currentRange = RANGES[e.target.value];
+  setupCanvasSize();
+  redrawAll();
+});
+
+// 初期描画
+setupCanvasSize();
+redrawAll();
+</script>
+</body>
+</html>
