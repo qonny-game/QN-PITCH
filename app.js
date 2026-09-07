@@ -37,9 +37,9 @@
 
   // ---------- ノイズ除去フィルタ設定 ----------
   const FILTER_DEFAULTS = {
-    jumpWindowMs: 120,     // 時間窓：この時間内での変化を見る
-    jumpSemitones: 5,      // 音程変化量：時間窓内でこの半音数以上動いたら急変とみなす
-    spikeRemoval: false,   // スパイク除去（孤立した単発の飛び値を除去）
+    jumpWindowMs: 150,     // 時間窓：この時間内での変化を見る
+    jumpSemitones: 2,      // 音程変化量：時間窓内でこの半音数以上動いたら急変とみなす
+    spikeRemoval: true,    // スパイク除去（孤立した単発の飛び値を除去）
     rmsThreshold: 0,       // 音量ゲート：0〜100スケール（0=無効）
   };
   const FILTER_STORAGE_KEY = 'qnpitch-filter-settings';

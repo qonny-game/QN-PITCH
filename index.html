@@ -3,14 +3,14 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-<title>QN PITCH 0.1.1</title>
+<title>QN PITCH 0.1.2</title>
 <link rel="stylesheet" href="style.css">
 </head>
 <body>
 
 <div id="appHeader">
   <div id="appHeaderText">
-    <h1 id="appLogo"><span id="appLogoQN">QN</span>PITCH <span id="appVersion">v0.1.1</span></h1>
+    <h1 id="appLogo"><span id="appLogoQN">QN</span>PITCH <span id="appVersion">v0.1.2</span></h1>
   </div>
   <div id="headerControls">
     <div class="header-btn-wrapper" id="qnNavWrapper">
@@ -61,11 +61,11 @@
     </div>
   </div>
   <div class="settings-field">
-    <label class="settings-field-label" for="jumpWindowInput">時間窓 <span class="settings-field-value" id="jumpWindowValue">120</span> ms</label>
+    <label class="settings-field-label" for="jumpWindowInput">時間窓 <span class="settings-field-value" id="jumpWindowValue">150</span> ms</label>
     <input type="range" id="jumpWindowInput" class="settings-slider" min="0" max="500" step="10">
   </div>
   <div class="settings-field">
-    <label class="settings-field-label" for="jumpSemitonesInput">音程変化量 <span class="settings-field-value" id="jumpSemitonesValue">5</span> 半音</label>
+    <label class="settings-field-label" for="jumpSemitonesInput">音程変化量 <span class="settings-field-value" id="jumpSemitonesValue">2</span> 半音</label>
     <input type="range" id="jumpSemitonesInput" class="settings-slider" min="0" max="12" step="1">
   </div>
 
@@ -76,7 +76,7 @@
       <span class="settings-row-title">スパイク除去</span>
       <span class="settings-row-desc">前後と繋がらない孤立した単発の飛び値を除去する</span>
     </div>
-    <button type="button" class="settings-toggle" id="spikeToggle" role="switch" aria-checked="false"><span class="settings-toggle-knob"></span></button>
+    <button type="button" class="settings-toggle" id="spikeToggle" role="switch" aria-checked="true"><span class="settings-toggle-knob"></span></button>
   </div>
 
   <div class="settings-divider"></div>
