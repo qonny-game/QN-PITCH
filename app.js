@@ -365,13 +365,13 @@
   });
 
   // ---------- 再生カーソル ----------
+  const rollContent = document.getElementById('rollContent');
   let cursorEl = null;
   function ensureCursorEl() {
     if (!cursorEl) {
       cursorEl = document.createElement('div');
       cursorEl.className = 'playback-cursor';
-      rollScroll.style.position = 'relative';
-      rollScroll.appendChild(cursorEl);
+      rollContent.appendChild(cursorEl);
     }
     return cursorEl;
   }

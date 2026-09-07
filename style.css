@@ -299,7 +299,14 @@ body {
   overflow-y: auto;
   -webkit-overflow-scrolling: touch;
   touch-action: pan-x pan-y;
+}
+
+/* canvasとカーソル線を両方内包するラッパー。canvasの実サイズ(=スクロール
+   コンテンツの全高・全幅)に合わせて広がるので、position:relativeの基準に
+   することでカーソル線がスクロール量に関わらず全高きちんと伸びる。 */
+.pitch-roll-content {
   position: relative;
+  display: inline-block;
 }
 
 .pitch-roll-scroll canvas {
