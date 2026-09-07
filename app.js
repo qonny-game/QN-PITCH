@@ -101,9 +101,12 @@
   const settingsCloseBtn = document.getElementById('settingsCloseBtn');
   const settingsResetBtn = document.getElementById('settingsResetBtn');
   const jumpWindowInput = document.getElementById('jumpWindowInput');
+  const jumpWindowValue = document.getElementById('jumpWindowValue');
   const jumpSemitonesInput = document.getElementById('jumpSemitonesInput');
+  const jumpSemitonesValue = document.getElementById('jumpSemitonesValue');
   const spikeToggle = document.getElementById('spikeToggle');
   const rmsThresholdInput = document.getElementById('rmsThresholdInput');
+  const rmsThresholdValue = document.getElementById('rmsThresholdValue');
 
   // ---------- キャンバス/鍵盤寸法 ----------
   const PIXELS_PER_SEC = 60;
@@ -830,9 +833,12 @@
   // ============================================================
   function reflectFilterSettingsToUI() {
     jumpWindowInput.value = filterSettings.jumpWindowMs;
+    jumpWindowValue.textContent = filterSettings.jumpWindowMs;
     jumpSemitonesInput.value = filterSettings.jumpSemitones;
+    jumpSemitonesValue.textContent = filterSettings.jumpSemitones;
     spikeToggle.setAttribute('aria-checked', filterSettings.spikeRemoval ? 'true' : 'false');
     rmsThresholdInput.value = filterSettings.rmsThreshold;
+    rmsThresholdValue.textContent = filterSettings.rmsThreshold;
   }
 
   function openSettingsModal() {
@@ -851,24 +857,25 @@
   settingsCloseBtn.addEventListener('click', closeSettingsModal);
   settingsBackdrop.addEventListener('click', closeSettingsModal);
 
-  jumpWindowInput.addEventListener('change', function () {
+  // スライダーはinputイベントでドラッグ中もリアルタイムに反映する
+  jumpWindowInput.addEventListener('input', function () {
     const v = parseInt(jumpWindowInput.value, 10);
-    filterSettings.jumpWindowMs = isNaN(v) ? FILTER_DEFAULTS.jumpWindowMs : Math.max(20, Math.min(1000, v));
-    jumpWindowInput.value = filterSettings.jumpWindowMs;
+    filterSettings.jumpWindowMs = isNaN(v) ? FILTER_DEFAULTS.jumpWindowMs : Math.max(0, Math.min(500, v));
+    jumpWindowValue.textContent = filterSettings.jumpWindowMs;
     saveFilterSettings();
     redraw();
   });
-  jumpSemitonesInput.addEventListener('change', function () {
+  jumpSemitonesInput.addEventListener('input', function () {
     const v = parseInt(jumpSemitonesInput.value, 10);
-    filterSettings.jumpSemitones = isNaN(v) ? FILTER_DEFAULTS.jumpSemitones : Math.max(1, Math.min(24, v));
-    jumpSemitonesInput.value = filterSettings.jumpSemitones;
+    filterSettings.jumpSemitones = isNaN(v) ? FILTER_DEFAULTS.jumpSemitones : Math.max(0, Math.min(12, v));
+    jumpSemitonesValue.textContent = filterSettings.jumpSemitones;
     saveFilterSettings();
     redraw();
   });
-  rmsThresholdInput.addEventListener('change', function () {
+  rmsThresholdInput.addEventListener('input', function () {
     const v = parseInt(rmsThresholdInput.value, 10);
     filterSettings.rmsThreshold = isNaN(v) ? FILTER_DEFAULTS.rmsThreshold : Math.max(0, Math.min(100, v));
-    rmsThresholdInput.value = filterSettings.rmsThreshold;
+    rmsThresholdValue.textContent = filterSettings.rmsThreshold;
     saveFilterSettings();
     redraw();
   });

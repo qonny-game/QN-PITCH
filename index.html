@@ -61,12 +61,12 @@
     </div>
   </div>
   <div class="settings-field">
-    <label class="settings-field-label" for="jumpWindowInput">時間窓 (ms)</label>
-    <input type="number" id="jumpWindowInput" class="settings-input" min="20" max="1000" step="10">
+    <label class="settings-field-label" for="jumpWindowInput">時間窓 <span class="settings-field-value" id="jumpWindowValue">120</span> ms</label>
+    <input type="range" id="jumpWindowInput" class="settings-slider" min="0" max="500" step="10">
   </div>
   <div class="settings-field">
-    <label class="settings-field-label" for="jumpSemitonesInput">音程変化量 (半音)</label>
-    <input type="number" id="jumpSemitonesInput" class="settings-input" min="1" max="24" step="1">
+    <label class="settings-field-label" for="jumpSemitonesInput">音程変化量 <span class="settings-field-value" id="jumpSemitonesValue">5</span> 半音</label>
+    <input type="range" id="jumpSemitonesInput" class="settings-slider" min="0" max="12" step="1">
   </div>
 
   <div class="settings-divider"></div>
@@ -88,8 +88,8 @@
     </div>
   </div>
   <div class="settings-field">
-    <label class="settings-field-label" for="rmsThresholdInput">最低音量 (RMS, 0〜100)</label>
-    <input type="number" id="rmsThresholdInput" class="settings-input" min="0" max="100" step="1">
+    <label class="settings-field-label" for="rmsThresholdInput">最低音量 <span class="settings-field-value" id="rmsThresholdValue">0</span> (RMS)</label>
+    <input type="range" id="rmsThresholdInput" class="settings-slider" min="0" max="100" step="1">
   </div>
 
   <div class="settings-btn-row">
