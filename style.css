@@ -181,36 +181,6 @@ body {
   pointer-events: none;
 }
 
-#listBtn, #settingsBtn {
-  flex-shrink: 0;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 10px 16px;
-  background: #16161b;
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: 12px;
-  cursor: pointer;
-  color: #f0f0f3;
-  font-family: var(--font-display, 'Outfit'), sans-serif;
-  font-size: 12px;
-  font-weight: 600;
-  letter-spacing: 0.5px;
-  text-transform: uppercase;
-  transition: background var(--dur-hover) var(--ease-snap), border-color var(--dur-hover) var(--ease-snap), color var(--dur-hover) var(--ease-snap), transform var(--dur-press) var(--ease-snap);
-}
-#listBtn:active, #settingsBtn:active { transform: scale(0.96); }
-#listBtn:hover, #settingsBtn:hover {
-  background: #1c1c24;
-  border-color: var(--accent-primary);
-  color: var(--accent-primary);
-}
-#listBtn svg, #settingsBtn svg { width: 16px; height: 16px; fill: currentColor; flex-shrink: 0; }
-#listBtn.active, #settingsBtn.active {
-  color: var(--accent-primary);
-  border-color: var(--accent-primary);
-  background: var(--accent-glow);
-}
 
 /* ---------- Pitch roll stage — the heart of the app ---------- */
 .stage-wrap {
@@ -811,6 +781,20 @@ body {
 }
 .loopbtn-play:disabled:active { transform: none; }
 .loopbtn-play.playing {
+  color: var(--accent-primary);
+  border-color: var(--accent-primary);
+  background: var(--accent-glow);
+}
+
+.loopbtn-square {
+  flex: 0 0 auto;
+  width: 56px;
+  padding: 0;
+  color: #c8c8d0;
+}
+.loopbtn-square svg { width: 18px; height: 18px; }
+.loopbtn-square .top-controls-btn-label { font-size: 8px; }
+.loopbtn-square.active {
   color: var(--accent-primary);
   border-color: var(--accent-primary);
   background: var(--accent-glow);
