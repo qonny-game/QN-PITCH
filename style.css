@@ -300,6 +300,9 @@ body {
   border-right: 1px solid rgba(255, 255, 255, 0.08);
   background: #18181f;
   position: relative;
+  /* JS側でscrollTopを操作して.pitch-roll-scrollと同期させるための隠しスクロール領域。
+     ユーザーが直接ここを操作することは想定していないためoverflow-yはhiddenのままでよいが、
+     scrollTopの代入自体はhiddenでも有効に働く。 */
 }
 
 .pitch-roll-key-label {
@@ -323,13 +326,13 @@ body {
   flex: 1;
   min-width: 0;
   overflow-x: auto;
-  overflow-y: hidden;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
   position: relative;
 }
 
 .pitch-roll-scroll canvas {
   display: block;
-  height: 100%;
 }
 
 /* プレイバックのカーソル線（再生位置と軌跡を連動させる） */

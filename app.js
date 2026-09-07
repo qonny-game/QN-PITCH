@@ -86,6 +86,7 @@
     canvas.width = canvasWidth;
     canvas.style.height = canvasHeight + 'px';
 
+    rollScroll.style.height = panelHeight + 'px';
     rollKeys.style.height = panelHeight + 'px';
     rollKeys.innerHTML = '';
     for (let m = FULL_RANGE.min; m <= FULL_RANGE.max; m++) {
