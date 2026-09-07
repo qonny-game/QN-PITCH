@@ -74,20 +74,6 @@
   <p class="stage-hint" id="statusHint">マイク未接続 — RECを押して開始</p>
 </div>
 
-<!-- 再生バー（録音を選択して再生中に表示） -->
-<div class="playback-bar" id="playbackBar">
-  <button id="playToggleBtn" class="pb-play-btn" title="Play / Pause">
-    <svg id="playIcon" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
-  </button>
-  <div class="pb-info">
-    <span class="pb-name" id="pbName">—</span>
-    <div class="pb-progress-track"><div class="pb-progress-fill" id="pbProgressFill"></div></div>
-  </div>
-  <button id="pbCloseBtn" class="pb-close-btn" title="Close">
-    <svg viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 7 19l5.59-5.59L17.59 19 19 17.59 13.41 12z"/></svg>
-  </button>
-</div>
-
 <!-- 録音停止時のファイル名確認ダイアログ -->
 <div class="av-popup-backdrop" id="saveBackdrop"></div>
 <div class="av-popup" id="savePopup">
@@ -112,10 +98,21 @@
 
 <!-- 下部固定トランスポート（QNAUDIO / QNTEMPOのtop-controlsに準拠） -->
 <div class="top-controls" id="topControls">
+  <div class="pb-info-row" id="pbInfoRow">
+    <span class="pb-name" id="pbName">—</span>
+    <div class="pb-progress-track"><div class="pb-progress-fill" id="pbProgressFill"></div></div>
+    <button id="pbCloseBtn" class="pb-close-btn" title="Close">
+      <svg viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 7 19l5.59-5.59L17.59 19 19 17.59 13.41 12z"/></svg>
+    </button>
+  </div>
   <div class="top-controls-row">
     <button id="recBtn" class="loopbtn loopbtn-rec" title="Record / Stop">
       <svg id="recIcon" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8"/></svg>
       <span class="top-controls-btn-label" id="recLabel">REC</span>
+    </button>
+    <button id="playToggleBtn" class="loopbtn loopbtn-play" title="Play / Pause" disabled>
+      <svg id="playIcon" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
+      <span class="top-controls-btn-label" id="playLabel">PLAY</span>
     </button>
   </div>
 </div>

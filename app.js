@@ -46,9 +46,10 @@
   const recListPanel = document.getElementById('recListPanel');
   const recListScroll = document.getElementById('recListScroll');
   const recListEmpty = document.getElementById('recListEmpty');
-  const playbackBar = document.getElementById('playbackBar');
+  const pbInfoRow = document.getElementById('pbInfoRow');
   const playToggleBtn = document.getElementById('playToggleBtn');
   const playIcon = document.getElementById('playIcon');
+  const playLabel = document.getElementById('playLabel');
   const pbName = document.getElementById('pbName');
   const pbProgressFill = document.getElementById('pbProgressFill');
   const pbCloseBtn = document.getElementById('pbCloseBtn');
@@ -639,6 +640,14 @@
   // ============================================================
   let currentPlayback = null; // { id, audio, rafId }
 
+  function setPlayIcon(playing) {
+    playIcon.innerHTML = playing
+      ? '<path d="M6 5h4v14H6zm8 0h4v14h-4z"/>'
+      : '<path d="M8 5v14l11-7z"/>';
+    playLabel.textContent = playing ? 'PAUSE' : 'PLAY';
+    playToggleBtn.classList.toggle('playing', playing);
+  }
+
   function stopPlayback() {
     if (currentPlayback) {
       currentPlayback.audio.pause();
@@ -646,7 +655,9 @@
       URL.revokeObjectURL(currentPlayback.audio.src);
       currentPlayback = null;
     }
-    playbackBar.classList.remove('open');
+    pbInfoRow.classList.remove('open');
+    playToggleBtn.disabled = true;
+    setPlayIcon(false);
     hideCursor();
     refreshRecList();
   }
@@ -666,16 +677,16 @@
 
     pbName.textContent = rec.name;
     pbProgressFill.style.width = '0%';
-    playbackBar.classList.add('open');
-    playIcon.innerHTML = '<path d="M8 5v14l11-7z"/>';
+    pbInfoRow.classList.add('open');
+    playToggleBtn.disabled = false;
 
     audio.addEventListener('ended', function () {
-      playIcon.innerHTML = '<path d="M8 5v14l11-7z"/>';
+      setPlayIcon(false);
       hideCursor();
     });
 
     audio.play();
-    playIcon.innerHTML = '<path d="M6 5h4v14H6zm8 0h4v14h-4z"/>';
+    setPlayIcon(true);
     tickPlayback();
     refreshRecList();
   }
@@ -698,11 +709,11 @@
     const audio = currentPlayback.audio;
     if (audio.paused) {
       audio.play();
-      playIcon.innerHTML = '<path d="M6 5h4v14H6zm8 0h4v14h-4z"/>';
+      setPlayIcon(true);
       tickPlayback();
     } else {
       audio.pause();
-      playIcon.innerHTML = '<path d="M8 5v14l11-7z"/>';
+      setPlayIcon(false);
     }
   });
 
