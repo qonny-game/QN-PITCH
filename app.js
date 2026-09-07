@@ -28,8 +28,38 @@
   const FULL_RANGE = { min: 24, max: 108 }; // C1 - C8（一般的な楽器・声域を広くカバー）
   const INITIAL_FOCUS = { min: 45, max: 81 }; // A2 - A5
 
-  // 一度に表示する行数（この行数だけ表示し、残りは縦スクロールで見る）
-  const VISIBLE_ROWS = 14;
+  // 一度に表示する行数（この行数だけ表示し、残りは縦スクロールで見る）。
+  // ピンチジェスチャーで可変にする：ピンチイン（指を狭める）で行数を増やし
+  // 広い音域を一望、ピンチアウト（指を広げる）で行数を減らし拡大表示にする。
+  let VISIBLE_ROWS = 14;
+  const VISIBLE_ROWS_MIN = 6;   // 拡大の上限（見やすさ優先）
+  const VISIBLE_ROWS_MAX = 40;  // 縮小の上限（一望性優先）
+
+  // ---------- ノイズ除去フィルタ設定 ----------
+  const FILTER_DEFAULTS = {
+    jumpWindowMs: 120,     // 時間窓：この時間内での変化を見る
+    jumpSemitones: 5,      // 音程変化量：時間窓内でこの半音数以上動いたら急変とみなす
+    spikeRemoval: false,   // スパイク除去（孤立した単発の飛び値を除去）
+    rmsThreshold: 0,       // 音量ゲート：0〜100スケール（0=無効）
+  };
+  const FILTER_STORAGE_KEY = 'qnpitch-filter-settings';
+  let filterSettings = loadFilterSettings();
+
+  function loadFilterSettings() {
+    try {
+      const raw = localStorage.getItem(FILTER_STORAGE_KEY);
+      if (!raw) return Object.assign({}, FILTER_DEFAULTS);
+      const parsed = JSON.parse(raw);
+      return Object.assign({}, FILTER_DEFAULTS, parsed);
+    } catch (e) {
+      return Object.assign({}, FILTER_DEFAULTS);
+    }
+  }
+  function saveFilterSettings() {
+    try {
+      localStorage.setItem(FILTER_STORAGE_KEY, JSON.stringify(filterSettings));
+    } catch (e) { /* localStorage不可でも致命的ではないので無視 */ }
+  }
 
   // ---------- DOM ----------
   const canvas = document.getElementById('rollCanvas');
@@ -65,6 +95,15 @@
   const renameNameInput = document.getElementById('renameNameInput');
   const renameOkBtn = document.getElementById('renameOkBtn');
   const renameCancelBtn = document.getElementById('renameCancelBtn');
+  const settingsBtn = document.getElementById('settingsBtn');
+  const settingsBackdrop = document.getElementById('settingsBackdrop');
+  const settingsPopup = document.getElementById('settingsPopup');
+  const settingsCloseBtn = document.getElementById('settingsCloseBtn');
+  const settingsResetBtn = document.getElementById('settingsResetBtn');
+  const jumpWindowInput = document.getElementById('jumpWindowInput');
+  const jumpSemitonesInput = document.getElementById('jumpSemitonesInput');
+  const spikeToggle = document.getElementById('spikeToggle');
+  const rmsThresholdInput = document.getElementById('rmsThresholdInput');
 
   // ---------- キャンバス/鍵盤寸法 ----------
   const PIXELS_PER_SEC = 60;
@@ -118,6 +157,76 @@
     rollKeys.scrollTop = rollScroll.scrollTop;
   }
 
+  // ---------- ピンチジェスチャーで表示音域の密度（VISIBLE_ROWS）を変える ----------
+  // ピンチイン（指の間隔が狭まる）→ VISIBLE_ROWSを増やす → 1行が小さくなり、
+  //   より広い音域を一望できる。
+  // ピンチアウト（指の間隔が広がる）→ VISIBLE_ROWSを減らす → 1行が大きくなり、
+  //   拡大表示になる。
+  // ピンチ中心の音高がその後も画面の同じ位置に留まるよう、スクロール位置を
+  // 併せて補正する。
+  let pinchStartDist = null;
+  let pinchStartRows = VISIBLE_ROWS;
+  let pinchAnchorMidi = null; // ピンチ中心が指していた音高（MIDIノート番号、小数可）
+  let pinchAnchorOffsetY = null; // パネル上端からピンチ中心までの距離(px)
+
+  function touchDist(t0, t1) {
+    const dx = t0.clientX - t1.clientX;
+    const dy = t0.clientY - t1.clientY;
+    return Math.sqrt(dx * dx + dy * dy);
+  }
+
+  function yToMidi(y) {
+    // canvas上のy座標（0=FULL_RANGE.max側の上端）からMIDIノート番号を逆算
+    return FULL_RANGE.max - y / ROW_HEIGHT;
+  }
+
+  rollScroll.addEventListener('touchstart', function (e) {
+    if (e.touches.length === 2) {
+      pinchStartDist = touchDist(e.touches[0], e.touches[1]);
+      pinchStartRows = VISIBLE_ROWS;
+
+      const rect = rollScroll.getBoundingClientRect();
+      const midY = (e.touches[0].clientY + e.touches[1].clientY) / 2 - rect.top;
+      pinchAnchorOffsetY = midY;
+      pinchAnchorMidi = yToMidi(rollScroll.scrollTop + midY);
+    }
+  }, { passive: true });
+
+  rollScroll.addEventListener('touchmove', function (e) {
+    if (e.touches.length === 2 && pinchStartDist) {
+      e.preventDefault();
+      const dist = touchDist(e.touches[0], e.touches[1]);
+      const scale = dist / pinchStartDist; // >1: 指を広げた(ピンチアウト), <1: 狭めた(ピンチイン)
+
+      // scaleが大きいほど拡大したい→VISIBLE_ROWSは減らす（逆比例）
+      let newRows = Math.round(pinchStartRows / scale);
+      newRows = Math.max(VISIBLE_ROWS_MIN, Math.min(VISIBLE_ROWS_MAX, newRows));
+      if (newRows !== VISIBLE_ROWS) {
+        VISIBLE_ROWS = newRows;
+        setupSize();
+        redraw();
+      }
+
+      // アンカーの音高が同じ画面位置に留まるようスクロール位置を補正
+      if (pinchAnchorMidi !== null) {
+        const panelHeight = rollScroll.parentElement.clientHeight || 320;
+        const anchorY = midiToY(pinchAnchorMidi);
+        const target = anchorY - pinchAnchorOffsetY;
+        const maxScroll = Math.max(0, canvasHeight - panelHeight);
+        rollScroll.scrollTop = Math.max(0, Math.min(maxScroll, target));
+        rollKeys.scrollTop = rollScroll.scrollTop;
+      }
+    }
+  }, { passive: false });
+
+  function endPinch() {
+    pinchStartDist = null;
+    pinchAnchorMidi = null;
+    pinchAnchorOffsetY = null;
+  }
+  rollScroll.addEventListener('touchend', endPinch, { passive: true });
+  rollScroll.addEventListener('touchcancel', endPinch, { passive: true });
+
   function midiToY(midi) {
     const clamped = Math.max(FULL_RANGE.min, Math.min(FULL_RANGE.max, midi));
     return (FULL_RANGE.max - clamped) * ROW_HEIGHT;
@@ -144,20 +253,77 @@
   }
 
   // ---------- ピッチトラック（録音中/選択中の録音、共通で使う） ----------
-  let pitchTrack = []; // { t, midi, cents, voiced }
+  let pitchTrack = []; // { t, midi, cents, rms, voiced }
   let startTime = 0;
+
+  // 設定に基づいてpitchTrackをフィルタリングした「描画用」配列を作る。
+  // 元のpitchTrack自体は変更しない（設定を変えて再描画すれば結果も変わる）。
+  function applyFilters(track) {
+    if (!track.length) return track;
+
+    // 1. 音量ゲート：閾値未満のrmsは無効点にする
+    const rmsThreshold = filterSettings.rmsThreshold / 100; // 0-100 → 0-1
+    let filtered = track.map(function (p) {
+      if (p.voiced && rmsThreshold > 0 && (p.rms === undefined || p.rms < rmsThreshold)) {
+        return Object.assign({}, p, { voiced: false });
+      }
+      return p;
+    });
+
+    // 2. 急変スキップ：時間窓内で音程変化量が閾値を超える箇所を無効にする
+    const windowSec = filterSettings.jumpWindowMs / 1000;
+    if (filterSettings.jumpSemitones > 0 && windowSec > 0) {
+      filtered = filtered.map(function (p, i) {
+        if (!p.voiced) return p;
+        // 直近windowSec以内の有声点と比較して、半音差が閾値を超えていたら無効化
+        for (let j = i - 1; j >= 0; j--) {
+          const prev = filtered[j];
+          if (p.t - prev.t > windowSec) break;
+          if (!prev.voiced) continue;
+          if (Math.abs(p.midi - prev.midi) >= filterSettings.jumpSemitones) {
+            return Object.assign({}, p, { voiced: false });
+          }
+        }
+        return p;
+      });
+    }
+
+    // 3. スパイク除去：前後の有声点とどちらとも大きく外れている孤立点を無効にする
+    if (filterSettings.spikeRemoval) {
+      filtered = filtered.map(function (p, i) {
+        if (!p.voiced) return p;
+        let prev = null, next = null;
+        for (let j = i - 1; j >= 0; j--) { if (filtered[j].voiced) { prev = filtered[j]; break; } }
+        for (let j = i + 1; j < filtered.length; j++) { if (filtered[j].voiced) { next = filtered[j]; break; } }
+        if (prev && next) {
+          const dPrev = Math.abs(p.midi - prev.midi);
+          const dNext = Math.abs(p.midi - next.midi);
+          const dPrevNext = Math.abs(next.midi - prev.midi);
+          // 自分だけ前後から大きく離れていて、前後同士は近い（＝自分が孤立した飛び値）
+          if (dPrev > 1.5 && dNext > 1.5 && dPrevNext < 1.0) {
+            return Object.assign({}, p, { voiced: false });
+          }
+        }
+        return p;
+      });
+    }
+
+    return filtered;
+  }
 
   function redraw() {
     drawBackground();
     if (pitchTrack.length < 2) return;
+
+    const track = applyFilters(pitchTrack);
 
     ctx.lineWidth = 2.5;
     ctx.lineCap = 'round';
     ctx.strokeStyle = '#3b82f6';
     ctx.beginPath();
     let started = false;
-    for (let i = 0; i < pitchTrack.length; i++) {
-      const p = pitchTrack[i];
+    for (let i = 0; i < track.length; i++) {
+      const p = track[i];
       if (!p.voiced) { started = false; continue; }
       const x = p.t * PIXELS_PER_SEC;
       const y = midiToY(p.midi) + ROW_HEIGHT / 2;
@@ -166,8 +332,8 @@
     }
     ctx.stroke();
 
-    for (let i = 0; i < pitchTrack.length; i++) {
-      const p = pitchTrack[i];
+    for (let i = 0; i < track.length; i++) {
+      const p = track[i];
       if (!p.voiced) continue;
       const x = p.t * PIXELS_PER_SEC;
       const y = midiToY(p.midi) + ROW_HEIGHT / 2;
@@ -237,7 +403,7 @@
     let rms = 0;
     for (let i = 0; i < SIZE; i++) rms += buf[i] * buf[i];
     rms = Math.sqrt(rms / SIZE);
-    if (rms < 0.01) return -1;
+    if (rms < 0.01) return { freq: -1, rms: rms };
 
     let r1 = 0, r2 = SIZE - 1;
     const thres = 0.2;
@@ -265,7 +431,7 @@
       if (c[i] > maxVal) { maxVal = c[i]; maxPos = i; }
     }
     let T0 = maxPos;
-    if (T0 <= 0) return -1;
+    if (T0 <= 0) return { freq: -1, rms: rms };
 
     const x1 = c[T0 - 1] || c[T0];
     const x2 = c[T0];
@@ -275,8 +441,8 @@
     if (a) T0 = T0 - b / (2 * a);
 
     const freq = sampleRate / T0;
-    if (freq < 50 || freq > 1200) return -1;
-    return freq;
+    if (freq < 50 || freq > 1200) return { freq: -1, rms: rms };
+    return { freq: freq, rms: rms };
   }
 
   async function startMic() {
@@ -287,7 +453,6 @@
     analyser.fftSize = 2048;
     sourceNode.connect(analyser);
   }
-
   function stopMic() {
     if (mediaStream) { mediaStream.getTracks().forEach(t => t.stop()); mediaStream = null; }
     if (audioCtx) { audioCtx.close(); audioCtx = null; }
@@ -297,7 +462,9 @@
     if (!recording || !analyser) return;
     const buf = new Float32Array(analyser.fftSize);
     analyser.getFloatTimeDomainData(buf);
-    const freq = autoCorrelate(buf, audioCtx.sampleRate);
+    const result = autoCorrelate(buf, audioCtx.sampleRate);
+    const freq = result.freq;
+    const rms = result.rms;
     const t = (performance.now() - startTime) / 1000;
 
     if (freq > 0) {
@@ -314,12 +481,12 @@
       centsReadout.className = 'cents-readout ' + cls;
       centsReadout.textContent = (cents > 0 ? '+' : '') + cents + ' ¢';
 
-      pitchTrack.push({ t, midi, cents, voiced: true });
+      pitchTrack.push({ t, midi, cents, rms, voiced: true });
     } else {
       noteReadout.textContent = '--';
       centsReadout.className = 'cents-readout';
       centsReadout.textContent = '-- ¢';
-      pitchTrack.push({ t, midi: 0, cents: 0, voiced: false });
+      pitchTrack.push({ t, midi: 0, cents: 0, rms, voiced: false });
     }
 
     ensureWidth(t);
@@ -330,7 +497,12 @@
   }
 
   async function beginRecording() {
-    if (!audioCtx) await startMic();
+    // 毎回マイクを取得し直す：一度停止したMediaRecorder/streamを使い回すと、
+    // ブラウザによっては2回目以降のdataavailableが発火せず録音が空になる
+    // ことがあるため、録音のたびに新しいgetUserMediaストリームを張り直す。
+    if (mediaStream) { mediaStream.getTracks().forEach(function (t) { t.stop(); }); mediaStream = null; }
+    if (audioCtx) { await audioCtx.close(); audioCtx = null; }
+    await startMic();
     recording = true;
     pitchTrack = [];
     canvasWidth = PIXELS_PER_SEC * initialBufferSec;
@@ -340,8 +512,10 @@
     recordedChunks = [];
     const mimeType = (window.MediaRecorder && MediaRecorder.isTypeSupported('audio/webm')) ? 'audio/webm' : '';
     mediaRecorder = new MediaRecorder(mediaStream, mimeType ? { mimeType } : undefined);
-    mediaRecorder.ondataavailable = (e) => { if (e.data.size > 0) recordedChunks.push(e.data); };
-    mediaRecorder.start();
+    mediaRecorder.ondataavailable = function (e) { if (e.data.size > 0) recordedChunks.push(e.data); };
+    // timesliceを指定して定期的にdataavailableを発火させる（stop時の一括発火に
+    // 依存しないことで取りこぼしを防ぐ）
+    mediaRecorder.start(250);
 
     recBtn.classList.add('recording');
     recLabel.textContent = 'STOP';
@@ -365,6 +539,11 @@
       mediaRecorder.stop();
     });
 
+    // 録音に使ったストリームはここで明示的に停止・解放する。
+    // 次の録音はbeginRecordingで新しく取得し直す。
+    if (mediaStream) { mediaStream.getTracks().forEach(function (t) { t.stop(); }); mediaStream = null; }
+    if (audioCtx) { await audioCtx.close(); audioCtx = null; }
+
     const blob = new Blob(recordedChunks, { type: (recordedChunks[0] && recordedChunks[0].type) || 'audio/webm' });
     const duration = finalTrack.length ? finalTrack[finalTrack.length - 1].t : 0;
     const defaultName = makeRecordingName();
@@ -378,9 +557,9 @@
     }
 
     try {
-      await dbAddRecording({ name: chosenName, blob, pitchTrack: finalTrack, duration, createdAt: Date.now() });
+      const newId = await dbAddRecording({ name: chosenName, blob, pitchTrack: finalTrack, duration, createdAt: Date.now() });
       statusHint.textContent = '「' + chosenName + '」を保存しました';
-      await refreshRecList();
+      selectRecording({ id: newId, name: chosenName, blob, pitchTrack: finalTrack, duration, createdAt: Date.now() });
     } catch (err) {
       console.error(err);
       statusHint.textContent = '保存に失敗しました';
@@ -645,6 +824,66 @@
   listBtn.addEventListener('click', openRecListModal);
   recListCloseBtn.addEventListener('click', closeRecListModal);
   recListBackdrop.addEventListener('click', closeRecListModal);
+
+  // ============================================================
+  // ノイズ除去フィルタ設定モーダル
+  // ============================================================
+  function reflectFilterSettingsToUI() {
+    jumpWindowInput.value = filterSettings.jumpWindowMs;
+    jumpSemitonesInput.value = filterSettings.jumpSemitones;
+    spikeToggle.setAttribute('aria-checked', filterSettings.spikeRemoval ? 'true' : 'false');
+    rmsThresholdInput.value = filterSettings.rmsThreshold;
+  }
+
+  function openSettingsModal() {
+    reflectFilterSettingsToUI();
+    settingsBackdrop.classList.add('open');
+    settingsPopup.classList.add('open');
+    settingsBtn.classList.add('active');
+  }
+  function closeSettingsModal() {
+    settingsBackdrop.classList.remove('open');
+    settingsPopup.classList.remove('open');
+    settingsBtn.classList.remove('active');
+  }
+
+  settingsBtn.addEventListener('click', openSettingsModal);
+  settingsCloseBtn.addEventListener('click', closeSettingsModal);
+  settingsBackdrop.addEventListener('click', closeSettingsModal);
+
+  jumpWindowInput.addEventListener('change', function () {
+    const v = parseInt(jumpWindowInput.value, 10);
+    filterSettings.jumpWindowMs = isNaN(v) ? FILTER_DEFAULTS.jumpWindowMs : Math.max(20, Math.min(1000, v));
+    jumpWindowInput.value = filterSettings.jumpWindowMs;
+    saveFilterSettings();
+    redraw();
+  });
+  jumpSemitonesInput.addEventListener('change', function () {
+    const v = parseInt(jumpSemitonesInput.value, 10);
+    filterSettings.jumpSemitones = isNaN(v) ? FILTER_DEFAULTS.jumpSemitones : Math.max(1, Math.min(24, v));
+    jumpSemitonesInput.value = filterSettings.jumpSemitones;
+    saveFilterSettings();
+    redraw();
+  });
+  rmsThresholdInput.addEventListener('change', function () {
+    const v = parseInt(rmsThresholdInput.value, 10);
+    filterSettings.rmsThreshold = isNaN(v) ? FILTER_DEFAULTS.rmsThreshold : Math.max(0, Math.min(100, v));
+    rmsThresholdInput.value = filterSettings.rmsThreshold;
+    saveFilterSettings();
+    redraw();
+  });
+  spikeToggle.addEventListener('click', function () {
+    filterSettings.spikeRemoval = !filterSettings.spikeRemoval;
+    spikeToggle.setAttribute('aria-checked', filterSettings.spikeRemoval ? 'true' : 'false');
+    saveFilterSettings();
+    redraw();
+  });
+  settingsResetBtn.addEventListener('click', function () {
+    filterSettings = Object.assign({}, FILTER_DEFAULTS);
+    reflectFilterSettingsToUI();
+    saveFilterSettings();
+    redraw();
+  });
 
   // ============================================================
   // 再生

@@ -42,6 +42,12 @@
         <span id="listBtnLabel">LIST</span>
       </button>
     </div>
+    <div class="header-btn-wrapper">
+      <button id="settingsBtn" title="Settings">
+        <svg viewBox="0 0 24 24"><path d="M19.14 12.94c.04-.3.06-.61.06-.94 0-.32-.02-.64-.07-.94l2.03-1.58a.5.5 0 0 0 .12-.61l-1.92-3.32a.5.5 0 0 0-.59-.22l-2.39.96a7.03 7.03 0 0 0-1.62-.94l-.36-2.54a.5.5 0 0 0-.5-.42h-3.84a.5.5 0 0 0-.5.42l-.36 2.54c-.59.24-1.13.56-1.62.94l-2.39-.96a.5.5 0 0 0-.59.22L3.28 8.87a.5.5 0 0 0 .12.61l2.03 1.58c-.05.3-.09.63-.09.94s.02.64.07.94l-2.03 1.58a.5.5 0 0 0-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.25.42.5.42h3.84c.25 0 .46-.18.5-.42l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32a.5.5 0 0 0-.12-.61l-2.01-1.58zM12 15.5A3.5 3.5 0 1 1 12 8.5a3.5 3.5 0 0 1 0 7z"/></svg>
+        <span id="settingsBtnLabel">SET</span>
+      </button>
+    </div>
   </div>
 </div>
 
@@ -53,6 +59,55 @@
     <p class="rec-list-empty" id="recListEmpty">まだ録音がありません</p>
   </div>
   <button class="popup-close-btn" id="recListCloseBtn">Done</button>
+</div>
+
+<!-- ノイズ除去フィルタ設定モーダル（SETボタンで開閉） -->
+<div class="av-popup-backdrop" id="settingsBackdrop"></div>
+<div class="av-popup settings-popup" id="settingsPopup">
+  <p class="popup-title">Filter Settings</p>
+
+  <div class="settings-row">
+    <div class="settings-row-label">
+      <span class="settings-row-title">急変スキップ</span>
+      <span class="settings-row-desc">直近の短時間で大きく音程が動いた区間の線を描画しない</span>
+    </div>
+  </div>
+  <div class="settings-field">
+    <label class="settings-field-label" for="jumpWindowInput">時間窓 (ms)</label>
+    <input type="number" id="jumpWindowInput" class="settings-input" min="20" max="1000" step="10">
+  </div>
+  <div class="settings-field">
+    <label class="settings-field-label" for="jumpSemitonesInput">音程変化量 (半音)</label>
+    <input type="number" id="jumpSemitonesInput" class="settings-input" min="1" max="24" step="1">
+  </div>
+
+  <div class="settings-divider"></div>
+
+  <div class="settings-row">
+    <div class="settings-row-label">
+      <span class="settings-row-title">スパイク除去</span>
+      <span class="settings-row-desc">前後と繋がらない孤立した単発の飛び値を除去する</span>
+    </div>
+    <button type="button" class="settings-toggle" id="spikeToggle" role="switch" aria-checked="false"><span class="settings-toggle-knob"></span></button>
+  </div>
+
+  <div class="settings-divider"></div>
+
+  <div class="settings-row">
+    <div class="settings-row-label">
+      <span class="settings-row-title">音量ゲート</span>
+      <span class="settings-row-desc">これより小さい音量で検出されたピッチは無効点として扱う</span>
+    </div>
+  </div>
+  <div class="settings-field">
+    <label class="settings-field-label" for="rmsThresholdInput">最低音量 (RMS, 0〜100)</label>
+    <input type="number" id="rmsThresholdInput" class="settings-input" min="0" max="100" step="1">
+  </div>
+
+  <div class="settings-btn-row">
+    <button class="save-cancel-btn" id="settingsResetBtn">Reset</button>
+    <button class="popup-close-btn save-ok-btn" id="settingsCloseBtn">Done</button>
+  </div>
 </div>
 
 <div class="stage-wrap">
