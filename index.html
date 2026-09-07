@@ -45,11 +45,14 @@
   </div>
 </div>
 
-<!-- 録音一覧パネル（LISTボタンでタップ開閉） -->
-<div class="rec-list-panel" id="recListPanel">
+<!-- 録音一覧モーダル（LISTボタンで開閉、画面に重ねて表示） -->
+<div class="av-popup-backdrop" id="recListBackdrop"></div>
+<div class="av-popup rec-list-popup" id="recListPopup">
+  <p class="popup-title">Recordings</p>
   <div class="rec-list-scroll" id="recListScroll">
     <p class="rec-list-empty" id="recListEmpty">まだ録音がありません</p>
   </div>
+  <button class="popup-close-btn" id="recListCloseBtn">Done</button>
 </div>
 
 <div class="stage-wrap">

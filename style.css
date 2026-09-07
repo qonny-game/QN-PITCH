@@ -360,28 +360,18 @@ body {
 }
 .stage-hint.live { color: var(--good); }
 
-/* ---------- Recordings list panel (LIST button toggles this) ---------- */
-.rec-list-panel {
-  flex-shrink: 0;
-  max-height: 0;
-  overflow: hidden;
-  border-radius: 14px;
-  background: #16161b;
-  border: 1px solid transparent;
-  margin-top: 0;
-  transition: max-height var(--dur-open) var(--ease-dismiss), margin-top var(--dur-open) var(--ease-dismiss), border-color var(--dur-open) var(--ease-dismiss);
-}
-.rec-list-panel.open {
-  max-height: 42vh;
-  margin-top: 14px;
-  border-color: rgba(255, 255, 255, 0.08);
-  transition: max-height var(--dur-open) var(--ease-pop), margin-top var(--dur-open) var(--ease-pop), border-color var(--dur-open) var(--ease-pop);
+/* ---------- Recordings list modal (LIST button opens this) ---------- */
+.rec-list-popup {
+  max-height: 70vh;
+  display: flex;
+  flex-direction: column;
 }
 
 .rec-list-scroll {
-  max-height: 42vh;
+  flex: 1;
+  min-height: 0;
   overflow-y: auto;
-  padding: 10px;
+  padding: 2px;
   display: flex;
   flex-direction: column;
   gap: 8px;

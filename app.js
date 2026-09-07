@@ -43,7 +43,9 @@
   const recLabel = document.getElementById('recLabel');
   const clearBtn = document.getElementById('clearBtn');
   const listBtn = document.getElementById('listBtn');
-  const recListPanel = document.getElementById('recListPanel');
+  const recListBackdrop = document.getElementById('recListBackdrop');
+  const recListPopup = document.getElementById('recListPopup');
+  const recListCloseBtn = document.getElementById('recListCloseBtn');
   const recListScroll = document.getElementById('recListScroll');
   const recListEmpty = document.getElementById('recListEmpty');
   const pbInfoRow = document.getElementById('pbInfoRow');
@@ -628,12 +630,21 @@
     });
   }
 
-  listBtn.addEventListener('click', function () {
-    const willOpen = !recListPanel.classList.contains('open');
-    recListPanel.classList.toggle('open', willOpen);
-    listBtn.classList.toggle('active', willOpen);
-    if (willOpen) refreshRecList();
-  });
+  function openRecListModal() {
+    recListBackdrop.classList.add('open');
+    recListPopup.classList.add('open');
+    listBtn.classList.add('active');
+    refreshRecList();
+  }
+  function closeRecListModal() {
+    recListBackdrop.classList.remove('open');
+    recListPopup.classList.remove('open');
+    listBtn.classList.remove('active');
+  }
+
+  listBtn.addEventListener('click', openRecListModal);
+  recListCloseBtn.addEventListener('click', closeRecListModal);
+  recListBackdrop.addEventListener('click', closeRecListModal);
 
   // ============================================================
   // 再生
@@ -689,6 +700,7 @@
     setPlayIcon(true);
     tickPlayback();
     refreshRecList();
+    closeRecListModal();
   }
 
   function tickPlayback() {
