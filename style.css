@@ -133,7 +133,7 @@ body {
   display: none;
   position: absolute;
   top: 48px;
-  left: 0;
+  right: 0;
   z-index: 210;
   min-width: 160px;
   padding: 6px;
@@ -789,7 +789,6 @@ body {
 .loopbtn-square {
   flex: 0 0 auto;
   width: 56px;
-  padding: 0;
   color: #c8c8d0;
 }
 .loopbtn-square svg { width: 18px; height: 18px; }
