@@ -22,17 +22,11 @@
     return name + octave;
   }
 
-  // ---------- 音域プリセット ----------
+  // ---------- 音域 ----------
   // キャンバス・鍵盤ラベルは常にFULL_RANGE（全音域）を保持し、上下スクロールで
-  // どこでも確認できるようにする。RANGESの選択は「スクロールの初期位置」を
-  // 決めるだけで、表示できる範囲そのものを制限するわけではない。
+  // どこでも自由に確認できる。初期表示はVOCAL帯（A2-A5）の中心へスクロールしておく。
   const FULL_RANGE = { min: 24, max: 108 }; // C1 - C8（一般的な楽器・声域を広くカバー）
-  const RANGES = [
-    { id: 'wide',   label: 'WIDE',   min: 36, max: 96 },  // C2 - C7 の中心へスクロール
-    { id: 'vocal',  label: 'VOCAL',  min: 45, max: 81 },  // A2 - A5 の中心へスクロール
-    { id: 'narrow', label: 'NARROW', min: 60, max: 72 },  // C4 - C5 の中心へスクロール
-  ];
-  let currentRange = RANGES[1];
+  const INITIAL_FOCUS = { min: 45, max: 81 }; // A2 - A5
 
   // 一度に表示する行数（この行数だけ表示し、残りは縦スクロールで見る）
   const VISIBLE_ROWS = 14;
@@ -48,12 +42,6 @@
   const recBtn = document.getElementById('recBtn');
   const recLabel = document.getElementById('recLabel');
   const clearBtn = document.getElementById('clearBtn');
-  const rangeBtn = document.getElementById('rangeBtn');
-  const rangeBtnLabel = document.getElementById('rangeBtnLabel');
-  const rangeBackdrop = document.getElementById('rangeBackdrop');
-  const rangePopup = document.getElementById('rangePopup');
-  const rangeGrid = document.getElementById('rangeGrid');
-  const rangeCloseBtn = document.getElementById('rangeCloseBtn');
   const listBtn = document.getElementById('listBtn');
   const recListPanel = document.getElementById('recListPanel');
   const recListScroll = document.getElementById('recListScroll');
@@ -480,37 +468,6 @@
     rollScroll.scrollLeft = 0;
   });
 
-  // ---------- Vocal range popup ----------
-  function renderRangeGrid() {
-    rangeGrid.innerHTML = '';
-    RANGES.forEach(function (r) {
-      const cell = document.createElement('div');
-      cell.className = 'choice-cell' + (r.id === currentRange.id ? ' selected' : '');
-      cell.textContent = r.label;
-      cell.addEventListener('click', function () {
-        currentRange = r;
-        rangeBtnLabel.textContent = r.label;
-        renderRangeGrid();
-        scrollToRange(r);
-      });
-      rangeGrid.appendChild(cell);
-    });
-  }
-
-  function openRangePopup() {
-    renderRangeGrid();
-    rangeBackdrop.classList.add('open');
-    rangePopup.classList.add('open');
-  }
-  function closeRangePopup() {
-    rangeBackdrop.classList.remove('open');
-    rangePopup.classList.remove('open');
-  }
-
-  rangeBtn.addEventListener('click', openRangePopup);
-  rangeCloseBtn.addEventListener('click', closeRangePopup);
-  rangeBackdrop.addEventListener('click', closeRangePopup);
-
   // ============================================================
   // IndexedDB — 録音の永続保存
   // ============================================================
@@ -758,6 +715,6 @@
 
   setupSize();
   redraw();
-  scrollToRange(currentRange);
+  scrollToRange(INITIAL_FOCUS);
   refreshRecList();
 })();
