@@ -41,6 +41,9 @@
     jumpSemitones: 2,      // 音程変化量：時間窓内でこの半音数以上動いたら急変とみなす
     spikeRemoval: true,    // スパイク除去（孤立した単発の飛び値を除去）
     rmsThreshold: 0,       // 音量ゲート：0〜100スケール（0=無効）
+    pitchDriftEnabled: false,   // 音程ズレハイライトのON/OFF
+    pitchDriftDurationMs: 400,  // 同じ音を維持しているとみなす最低期間(ms)
+    pitchDriftCents: 20,        // その区間の平均セントズレがこれを超えたら赤くする
   };
   const FILTER_STORAGE_KEY = 'qnpitch-filter-settings';
   let filterSettings = loadFilterSettings();
@@ -107,6 +110,11 @@
   const spikeToggle = document.getElementById('spikeToggle');
   const rmsThresholdInput = document.getElementById('rmsThresholdInput');
   const rmsThresholdValue = document.getElementById('rmsThresholdValue');
+  const pitchDriftToggle = document.getElementById('pitchDriftToggle');
+  const pitchDriftDurationInput = document.getElementById('pitchDriftDurationInput');
+  const pitchDriftDurationValue = document.getElementById('pitchDriftDurationValue');
+  const pitchDriftCentsInput = document.getElementById('pitchDriftCentsInput');
+  const pitchDriftCentsValue = document.getElementById('pitchDriftCentsValue');
 
   // ---------- キャンバス/鍵盤寸法 ----------
   const PIXELS_PER_SEC = 60;
@@ -314,11 +322,67 @@
     return filtered;
   }
 
+  // ---------- 音程ズレハイライト ----------
+  // フィルタ後のtrackを対象に、「同じノート(半音)を最低保持期間以上維持している
+  // 区間」を検出し、その区間内の平均セントズレが閾値を超えていたら
+  // {startT, endT} の赤帯として返す。
+  function detectDriftRegions(track) {
+    if (!filterSettings.pitchDriftEnabled || !track.length) return [];
+
+    const regions = [];
+    const minDurationSec = filterSettings.pitchDriftDurationMs / 1000;
+    const centsThreshold = filterSettings.pitchDriftCents;
+
+    let i = 0;
+    while (i < track.length) {
+      if (!track[i].voiced) { i++; continue; }
+      const note = Math.round(track[i].midi);
+      let j = i;
+      // 同じノートが続く限り区間を伸ばす（無声点はスキップして許容）
+      while (j < track.length) {
+        const p = track[j];
+        if (p.voiced && Math.round(p.midi) !== note) break;
+        j++;
+      }
+      // [i, j) が「同じノートの区間」（末尾の無声点は含めない）
+      let end = j - 1;
+      while (end > i && !track[end].voiced) end--;
+
+      const startT = track[i].t;
+      const endT = track[end].t;
+      if (endT - startT >= minDurationSec) {
+        let sum = 0, count = 0;
+        for (let k = i; k <= end; k++) {
+          if (track[k].voiced) { sum += track[k].cents; count++; }
+        }
+        if (count > 0) {
+          const avgCents = sum / count;
+          if (Math.abs(avgCents) > centsThreshold) {
+            regions.push({ startT: startT, endT: endT });
+          }
+        }
+      }
+      i = j;
+    }
+    return regions;
+  }
+
   function redraw() {
     drawBackground();
     if (pitchTrack.length < 2) return;
 
     const track = applyFilters(pitchTrack);
+
+    // 音程ズレハイライト：赤帯を線より先に描画（背景として敷く）
+    const driftRegions = detectDriftRegions(track);
+    if (driftRegions.length) {
+      ctx.fillStyle = 'rgba(248, 113, 113, 0.22)';
+      driftRegions.forEach(function (r) {
+        const x1 = r.startT * PIXELS_PER_SEC;
+        const x2 = r.endT * PIXELS_PER_SEC;
+        ctx.fillRect(x1, 0, Math.max(2, x2 - x1), canvasHeight);
+      });
+    }
 
     ctx.lineWidth = 2.5;
     ctx.lineCap = 'round';
@@ -839,6 +903,11 @@
     spikeToggle.setAttribute('aria-checked', filterSettings.spikeRemoval ? 'true' : 'false');
     rmsThresholdInput.value = filterSettings.rmsThreshold;
     rmsThresholdValue.textContent = filterSettings.rmsThreshold;
+    pitchDriftToggle.setAttribute('aria-checked', filterSettings.pitchDriftEnabled ? 'true' : 'false');
+    pitchDriftDurationInput.value = filterSettings.pitchDriftDurationMs;
+    pitchDriftDurationValue.textContent = filterSettings.pitchDriftDurationMs;
+    pitchDriftCentsInput.value = filterSettings.pitchDriftCents;
+    pitchDriftCentsValue.textContent = filterSettings.pitchDriftCents;
   }
 
   function openSettingsModal() {
@@ -882,6 +951,26 @@
   spikeToggle.addEventListener('click', function () {
     filterSettings.spikeRemoval = !filterSettings.spikeRemoval;
     spikeToggle.setAttribute('aria-checked', filterSettings.spikeRemoval ? 'true' : 'false');
+    saveFilterSettings();
+    redraw();
+  });
+  pitchDriftToggle.addEventListener('click', function () {
+    filterSettings.pitchDriftEnabled = !filterSettings.pitchDriftEnabled;
+    pitchDriftToggle.setAttribute('aria-checked', filterSettings.pitchDriftEnabled ? 'true' : 'false');
+    saveFilterSettings();
+    redraw();
+  });
+  pitchDriftDurationInput.addEventListener('input', function () {
+    const v = parseInt(pitchDriftDurationInput.value, 10);
+    filterSettings.pitchDriftDurationMs = isNaN(v) ? FILTER_DEFAULTS.pitchDriftDurationMs : Math.max(100, Math.min(2000, v));
+    pitchDriftDurationValue.textContent = filterSettings.pitchDriftDurationMs;
+    saveFilterSettings();
+    redraw();
+  });
+  pitchDriftCentsInput.addEventListener('input', function () {
+    const v = parseInt(pitchDriftCentsInput.value, 10);
+    filterSettings.pitchDriftCents = isNaN(v) ? FILTER_DEFAULTS.pitchDriftCents : Math.max(1, Math.min(50, v));
+    pitchDriftCentsValue.textContent = filterSettings.pitchDriftCents;
     saveFilterSettings();
     redraw();
   });

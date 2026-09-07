@@ -3,14 +3,14 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-<title>QN PITCH 0.1.2</title>
+<title>QN PITCH 0.1.3</title>
 <link rel="stylesheet" href="style.css">
 </head>
 <body>
 
 <div id="appHeader">
   <div id="appHeaderText">
-    <h1 id="appLogo"><span id="appLogoQN">QN</span>PITCH <span id="appVersion">v0.1.2</span></h1>
+    <h1 id="appLogo"><span id="appLogoQN">QN</span>PITCH <span id="appVersion">v0.1.3</span></h1>
   </div>
   <div id="headerControls">
     <div class="header-btn-wrapper" id="qnNavWrapper">
@@ -90,6 +90,24 @@
   <div class="settings-field">
     <label class="settings-field-label" for="rmsThresholdInput">最低音量 <span class="settings-field-value" id="rmsThresholdValue">0</span> (RMS)</label>
     <input type="range" id="rmsThresholdInput" class="settings-slider" min="0" max="100" step="1">
+  </div>
+
+  <div class="settings-divider"></div>
+
+  <div class="settings-row">
+    <div class="settings-row-label">
+      <span class="settings-row-title">音程ズレハイライト</span>
+      <span class="settings-row-desc">同じ音を一定期間以上保持している区間で、平均セントのズレが大きい場合に背景を赤くする</span>
+    </div>
+    <button type="button" class="settings-toggle" id="pitchDriftToggle" role="switch" aria-checked="false"><span class="settings-toggle-knob"></span></button>
+  </div>
+  <div class="settings-field">
+    <label class="settings-field-label" for="pitchDriftDurationInput">最低保持期間 <span class="settings-field-value" id="pitchDriftDurationValue">400</span> ms</label>
+    <input type="range" id="pitchDriftDurationInput" class="settings-slider" min="100" max="2000" step="50">
+  </div>
+  <div class="settings-field">
+    <label class="settings-field-label" for="pitchDriftCentsInput">平均ズレ閾値 <span class="settings-field-value" id="pitchDriftCentsValue">20</span> ¢</label>
+    <input type="range" id="pitchDriftCentsInput" class="settings-slider" min="1" max="50" step="1">
   </div>
 
   <div class="settings-btn-row">
