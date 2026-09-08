@@ -179,6 +179,7 @@
   const settingsPopup = document.getElementById('settingsPopup');
   const settingsCloseBtn = document.getElementById('settingsCloseBtn');
   const settingsResetBtn = document.getElementById('settingsResetBtn');
+  const settingsCancelBtn = document.getElementById('settingsCancelBtn');
   const jumpWindowInput = document.getElementById('jumpWindowInput');
   const jumpWindowValue = document.getElementById('jumpWindowValue');
   const jumpSemitonesInput = document.getElementById('jumpSemitonesInput');
@@ -1322,7 +1323,10 @@
     scoreCentsValue.textContent = filterSettings.scoreCentsThreshold;
   }
 
+  let settingsSnapshot = null; // モーダルを開いた時点の設定値（CANCELでここに戻す）
+
   function openSettingsModal() {
+    settingsSnapshot = Object.assign({}, filterSettings);
     reflectFilterSettingsToUI();
     settingsBackdrop.classList.add('open');
     settingsPopup.classList.add('open');
@@ -1333,9 +1337,19 @@
     settingsPopup.classList.remove('open');
     settingsBtn.classList.remove('active');
   }
+  function cancelSettingsModal() {
+    if (settingsSnapshot) {
+      filterSettings = Object.assign({}, settingsSnapshot);
+      saveFilterSettings();
+      reflectFilterSettingsToUI();
+      redraw();
+    }
+    closeSettingsModal();
+  }
 
   settingsBtn.addEventListener('click', openSettingsModal);
   settingsCloseBtn.addEventListener('click', closeSettingsModal);
+  settingsCancelBtn.addEventListener('click', cancelSettingsModal);
   settingsBackdrop.addEventListener('click', closeSettingsModal);
 
   // ---------- キー・スケール＆ドローン設定モーダル ----------

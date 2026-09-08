@@ -675,6 +675,7 @@ body {
 
 .settings-btn-row {
   display: flex;
+  align-items: stretch;
   gap: 8px;
   margin-top: 16px;
 }
@@ -771,12 +772,10 @@ body {
 }
 
 /* 設定画面は調整しながら後ろのピッチロール/音量ラインが見えるよう、
-   本体・バックドロップともに他のモーダルより透過度を高くする。
+   本体・バックドロップともに他のモーダルより透過度を高くする（ぼかしなし）。
    .av-popupより後方に置くことで、不透明な背景色を確実に上書きする。 */
 .settings-popup {
   background: rgba(22, 22, 27, 0.55);
-  backdrop-filter: blur(6px);
-  -webkit-backdrop-filter: blur(6px);
 }
 #settingsBackdrop.open {
   background: rgba(5, 5, 7, 0.15);
@@ -852,6 +851,15 @@ body {
   box-sizing: border-box;
 }
 .popup-close-btn:active { transform: scale(0.97); }
+
+/* .settings-btn-row / .key-select-row 等、Reset/Doneを横並びにする箇所では
+   .popup-close-btn の width:100% を上書きし、Resetボタンと同じ幅に揃える。
+   .popup-close-btnより後方に置くことで確実に上書きする。 */
+.popup-close-btn.save-ok-btn {
+  width: auto;
+  flex: 1;
+  margin-top: 0;
+}
 
 /* ---------- Bottom fixed transport (mirrors QNAUDIO / QNTEMPO top-controls) ---------- */
 .top-controls-spacer { flex-shrink: 0; }
