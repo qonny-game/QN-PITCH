@@ -110,6 +110,32 @@
     return SCALE_INTERVALS[keySettings.keyMode].indexOf(rel) !== -1;
   }
 
+  // ---------- 簡易メトロノーム設定 ----------
+  const TEMPO_DEFAULTS = {
+    bpm: 120,          // テンポ(拍/分)
+    beatsPerBar: 4,     // 拍子の分子（1小節あたりの拍数）
+    volume: 0.6,        // クリック音量(0-1)
+  };
+  const TEMPO_STORAGE_KEY = 'qnpitch-tempo-settings';
+  let tempoSettings = loadTempoSettings();
+  let metronomeEnabled = false; // ON/OFFは再生状態なので保存はせず毎回OFFから始める
+
+  function loadTempoSettings() {
+    try {
+      const raw = localStorage.getItem(TEMPO_STORAGE_KEY);
+      if (!raw) return Object.assign({}, TEMPO_DEFAULTS);
+      const parsed = JSON.parse(raw);
+      return Object.assign({}, TEMPO_DEFAULTS, parsed);
+    } catch (e) {
+      return Object.assign({}, TEMPO_DEFAULTS);
+    }
+  }
+  function saveTempoSettings() {
+    try {
+      localStorage.setItem(TEMPO_STORAGE_KEY, JSON.stringify(tempoSettings));
+    } catch (e) { /* 無視 */ }
+  }
+
   // ---------- DOM ----------
   const canvas = document.getElementById('rollCanvas');
   const ctx = canvas.getContext('2d');
@@ -181,6 +207,16 @@
   const droneToggle = document.getElementById('droneToggle');
   const droneOctaveInput = document.getElementById('droneOctaveInput');
   const droneOctaveValue = document.getElementById('droneOctaveValue');
+  const tempoBtn = document.getElementById('tempoBtn');
+  const tempoBackdrop = document.getElementById('tempoBackdrop');
+  const tempoPopup = document.getElementById('tempoPopup');
+  const tempoCloseBtn = document.getElementById('tempoCloseBtn');
+  const metronomeToggle = document.getElementById('metronomeToggle');
+  const tempoBeatsSelect = document.getElementById('tempoBeatsSelect');
+  const tempoBpmInput = document.getElementById('tempoBpmInput');
+  const tempoBpmValue = document.getElementById('tempoBpmValue');
+  const tempoVolumeInput = document.getElementById('tempoVolumeInput');
+  const tempoVolumeValue = document.getElementById('tempoVolumeValue');
   const volumeScroll = document.getElementById('volumeScroll');
   const volumeCanvas = document.getElementById('volumeCanvas');
   const volCtx = volumeCanvas.getContext('2d');
@@ -518,7 +554,22 @@
 
   function redraw() {
     drawBackground();
-    if (pitchTrack.length < 2) return;
+
+    // メトロノームの小節線：録音の有無に関わらず、現在のロール表示幅全体に描画する
+    const beatLines = getMetronomeBeatLines(canvasWidth / PIXELS_PER_SEC);
+    if (beatLines.length) {
+      beatLines.forEach(function (bl) {
+        const x = bl.t * PIXELS_PER_SEC;
+        ctx.strokeStyle = bl.isDownbeat ? 'rgba(240, 240, 245, 0.5)' : 'rgba(240, 240, 245, 0.18)';
+        ctx.lineWidth = bl.isDownbeat ? 2 : 1;
+        ctx.beginPath();
+        ctx.moveTo(x, 0);
+        ctx.lineTo(x, canvasHeight);
+        ctx.stroke();
+      });
+    }
+
+    if (pitchTrack.length < 2) { drawVolumeLine(); return; }
 
     const track = applyFilters(pitchTrack);
 
@@ -722,6 +773,80 @@
     if (droneOsc) {
       droneOsc.frequency.setValueAtTime(midiToFreq(midiFromKeyRootAndOctave()), droneCtx.currentTime);
     }
+  }
+
+  // ---------- 簡易メトロノーム ----------
+  // ドローンと同様、マイク用audioCtxとは独立したAudioContextでクリック音をスケジューリング再生する。
+  // ロールへの小節線描画は、録音のタイムライン(t秒)全体に対して周期的に拍位置を計算する方式にすることで、
+  // 「メトロノームを録音前から鳴らしていても、録音開始後のロールに正しく線が乗る」ようにしている。
+  let metroCtx = null;
+  let metroTimerId = null;
+  let metroNextBeatTime = 0;   // 次に鳴らす拍のAudioContext上の時刻
+  let metroBeatIndex = 0;      // 小節内の拍番号(0=小節先頭)
+  let metroStartPerf = 0;      // メトロノームを開始したperformance.now()（ロール描画の基準用）
+  const METRO_SCHEDULE_AHEAD = 0.1; // 先読みスケジュール幅(秒)
+  const METRO_INTERVAL_MS = 25;     // スケジューラのチェック間隔(ms)
+
+  function scheduleClick(time, isDownbeat) {
+    const osc = metroCtx.createOscillator();
+    const gain = metroCtx.createGain();
+    osc.type = 'sine';
+    osc.frequency.value = isDownbeat ? 1500 : 1000; // 小節先頭は高音、それ以外は低音
+    const vol = tempoSettings.volume * (isDownbeat ? 1.0 : 0.7);
+    gain.gain.setValueAtTime(0, time);
+    gain.gain.linearRampToValueAtTime(vol, time + 0.002);
+    gain.gain.exponentialRampToValueAtTime(0.0001, time + 0.06);
+    osc.connect(gain);
+    gain.connect(metroCtx.destination);
+    osc.start(time);
+    osc.stop(time + 0.08);
+  }
+
+  function metroScheduler() {
+    const beatSec = 60 / tempoSettings.bpm;
+    while (metroNextBeatTime < metroCtx.currentTime + METRO_SCHEDULE_AHEAD) {
+      scheduleClick(metroNextBeatTime, metroBeatIndex === 0);
+      metroBeatIndex = (metroBeatIndex + 1) % tempoSettings.beatsPerBar;
+      metroNextBeatTime += beatSec;
+    }
+  }
+
+  function startMetronome() {
+    if (metroCtx) return;
+    metroCtx = new (window.AudioContext || window.webkitAudioContext)();
+    metroBeatIndex = 0;
+    metroNextBeatTime = metroCtx.currentTime + 0.05;
+    metroStartPerf = performance.now();
+    metroScheduler();
+    metroTimerId = setInterval(metroScheduler, METRO_INTERVAL_MS);
+  }
+  function stopMetronome() {
+    if (!metroCtx) return;
+    if (metroTimerId) { clearInterval(metroTimerId); metroTimerId = null; }
+    const ctxToClose = metroCtx;
+    metroCtx = null;
+    ctxToClose.close();
+  }
+
+  // 録音のタイムライン座標(t秒, 0〜durationSec)上で、ロールに描くべき拍位置(t)の配列を返す。
+  // { t, isDownbeat } のリスト。メトロノーム未使用時は空配列。
+  function getMetronomeBeatLines(durationSec) {
+    if (!metronomeEnabled || !metroCtx || durationSec <= 0) return [];
+    const beatSec = 60 / tempoSettings.bpm;
+    // メトロノーム開始時点(metroStartPerf)が、録音タイムライン上のどの時刻(t)に当たるかを求める。
+    const metroStartT = (metroStartPerf - startTime) / 1000;
+
+    // durationSec全体をカバーするよう、metroStartTを基準に整数倍だけずらして拍位置を列挙する。
+    const lines = [];
+    const startIdx = Math.floor((0 - metroStartT) / beatSec) - 1;
+    const endIdx = Math.ceil((durationSec - metroStartT) / beatSec) + 1;
+    for (let idx = startIdx; idx <= endIdx; idx++) {
+      const t = metroStartT + idx * beatSec;
+      if (t < 0 || t > durationSec) continue;
+      const beatPos = ((idx % tempoSettings.beatsPerBar) + tempoSettings.beatsPerBar) % tempoSettings.beatsPerBar;
+      lines.push({ t: t, isDownbeat: beatPos === 0 });
+    }
+    return lines;
   }
 
   let mediaRecorder = null;
@@ -1255,6 +1380,55 @@
     droneOctaveValue.textContent = keySettings.droneOctave;
     saveKeySettings();
     updateDroneFrequency();
+  });
+
+  // ---------- メトロノームモーダル ----------
+  function reflectTempoSettingsToUI() {
+    metronomeToggle.setAttribute('aria-checked', metronomeEnabled ? 'true' : 'false');
+    tempoBeatsSelect.value = String(tempoSettings.beatsPerBar);
+    tempoBpmInput.value = tempoSettings.bpm;
+    tempoBpmValue.textContent = tempoSettings.bpm;
+    tempoVolumeInput.value = tempoSettings.volume;
+    tempoVolumeValue.textContent = tempoSettings.volume.toFixed(2);
+  }
+  function openTempoModal() {
+    reflectTempoSettingsToUI();
+    tempoBackdrop.classList.add('open');
+    tempoPopup.classList.add('open');
+    tempoBtn.classList.add('active');
+  }
+  function closeTempoModal() {
+    tempoBackdrop.classList.remove('open');
+    tempoPopup.classList.remove('open');
+    tempoBtn.classList.remove('active');
+  }
+  tempoBtn.addEventListener('click', openTempoModal);
+  tempoCloseBtn.addEventListener('click', closeTempoModal);
+  tempoBackdrop.addEventListener('click', closeTempoModal);
+
+  metronomeToggle.addEventListener('click', function () {
+    metronomeEnabled = !metronomeEnabled;
+    metronomeToggle.setAttribute('aria-checked', metronomeEnabled ? 'true' : 'false');
+    if (metronomeEnabled) startMetronome(); else stopMetronome();
+    redraw();
+  });
+  tempoBeatsSelect.addEventListener('change', function () {
+    tempoSettings.beatsPerBar = parseInt(tempoBeatsSelect.value, 10);
+    saveTempoSettings();
+    redraw();
+  });
+  tempoBpmInput.addEventListener('input', function () {
+    const v = parseInt(tempoBpmInput.value, 10);
+    tempoSettings.bpm = isNaN(v) ? TEMPO_DEFAULTS.bpm : Math.max(40, Math.min(240, v));
+    tempoBpmValue.textContent = tempoSettings.bpm;
+    saveTempoSettings();
+    redraw();
+  });
+  tempoVolumeInput.addEventListener('input', function () {
+    const v = parseFloat(tempoVolumeInput.value);
+    tempoSettings.volume = isNaN(v) ? TEMPO_DEFAULTS.volume : Math.max(0, Math.min(1, v));
+    tempoVolumeValue.textContent = tempoSettings.volume.toFixed(2);
+    saveTempoSettings();
   });
 
   // スライダーはinputイベントでドラッグ中もリアルタイムに反映する

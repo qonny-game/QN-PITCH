@@ -514,9 +514,17 @@ body {
 .save-ok-btn { flex: 1; margin-top: 0; }
 
 /* ---------- Settings modal ---------- */
+/* 設定画面は調整しながら後ろのピッチロール/音量ラインが見えるよう、
+   本体・バックドロップともに他のモーダルより透過度を高くしている。 */
 .settings-popup {
   max-height: 80vh;
   overflow-y: auto;
+  background: rgba(22, 22, 27, 0.55);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+}
+#settingsBackdrop.open {
+  background: rgba(5, 5, 7, 0.15);
 }
 
 /* ---------- Key & Drone modal ---------- */
@@ -548,6 +556,12 @@ body {
   background-size: 18px;
 }
 .key-select:focus { outline: none; border-color: var(--accent-primary); }
+
+/* ---------- Metronome modal ---------- */
+.tempo-popup {
+  max-height: 80vh;
+  overflow-y: auto;
+}
 
 .settings-row {
   display: flex;

@@ -3,14 +3,14 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-<title>QN PITCH 0.1.8</title>
+<title>QN PITCH 0.2.0</title>
 <link rel="stylesheet" href="style.css">
 </head>
 <body>
 
 <div id="appHeader">
   <div id="appHeaderText">
-    <h1 id="appLogo"><span id="appLogoQN">QN</span>PITCH <span id="appVersion">v0.1.8</span></h1>
+    <h1 id="appLogo"><span id="appLogoQN">QN</span>PITCH <span id="appVersion">v0.2.0</span></h1>
   </div>
   <div id="headerControls">
     <div class="header-btn-wrapper" id="qnNavWrapper">
@@ -205,6 +205,43 @@
   </div>
 </div>
 
+<!-- 簡易メトロノームモーダル（TEMPOボタンで開閉） -->
+<div class="av-popup-backdrop" id="tempoBackdrop"></div>
+<div class="av-popup tempo-popup" id="tempoPopup">
+  <p class="popup-title">Metronome</p>
+
+  <div class="settings-row">
+    <div class="settings-row-label">
+      <span class="settings-row-title">メトロノーム</span>
+      <span class="settings-row-desc">クリック音を鳴らしながら、ロールに小節線を表示する</span>
+    </div>
+    <button type="button" class="settings-toggle" id="metronomeToggle" role="switch" aria-checked="false"><span class="settings-toggle-knob"></span></button>
+  </div>
+
+  <div class="key-select-row">
+    <select id="tempoBeatsSelect" class="key-select">
+      <option value="2">2/4</option>
+      <option value="3">3/4</option>
+      <option value="4">4/4</option>
+      <option value="5">5/4</option>
+      <option value="6">6/8</option>
+    </select>
+  </div>
+
+  <div class="settings-field">
+    <label class="settings-field-label" for="tempoBpmInput">BPM <span class="settings-field-value" id="tempoBpmValue">120</span></label>
+    <input type="range" id="tempoBpmInput" class="settings-slider" min="40" max="240" step="1">
+  </div>
+  <div class="settings-field">
+    <label class="settings-field-label" for="tempoVolumeInput">クリック音量 <span class="settings-field-value" id="tempoVolumeValue">0.6</span></label>
+    <input type="range" id="tempoVolumeInput" class="settings-slider" min="0" max="1" step="0.05">
+  </div>
+
+  <div class="settings-btn-row">
+    <button class="popup-close-btn save-ok-btn" id="tempoCloseBtn">Done</button>
+  </div>
+</div>
+
 <div class="stage-wrap">
   <div class="stage-meta">
     <span class="stage-meta-label">NOTE</span>
@@ -214,6 +251,7 @@
 
     <div class="meta-div-toggle" id="clearToggle">
       <button type="button" class="meta-div-btn" id="keyBtn">KEY</button>
+      <button type="button" class="meta-div-btn" id="tempoBtn">TEMPO</button>
       <button type="button" class="meta-div-btn" id="clearBtn">CLEAR</button>
     </div>
   </div>
