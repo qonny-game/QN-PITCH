@@ -343,7 +343,7 @@ body {
 /* ---------- Volume panel (RMS音量ライン、ピッチロールの下に固定高さで表示) ---------- */
 .volume-panel {
   flex-shrink: 0;
-  height: 44px;
+  height: 60px;
   margin-top: 6px;
   border-radius: 12px;
   background: #16161b;

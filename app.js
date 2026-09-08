@@ -31,9 +31,10 @@
   // 一度に表示する行数（この行数だけ表示し、残りは縦スクロールで見る）。
   // ピンチジェスチャーで可変にする：ピンチイン（指を狭める）で行数を増やし
   // 広い音域を一望、ピンチアウト（指を広げる）で行数を減らし拡大表示にする。
-  let VISIBLE_ROWS = 14;
+  // 初期表示はVISIBLE_ROWS_MAX（最大ズームアウト＝全音域が一望できる状態）から始める。
   const VISIBLE_ROWS_MIN = 6;   // 拡大の上限（見やすさ優先）
   const VISIBLE_ROWS_MAX = 40;  // 縮小の上限（一望性優先）
+  let VISIBLE_ROWS = VISIBLE_ROWS_MAX;
 
   // ---------- ノイズ除去フィルタ設定 ----------
   const FILTER_DEFAULTS = {
@@ -140,6 +141,8 @@
   const canvas = document.getElementById('rollCanvas');
   const ctx = canvas.getContext('2d');
   const rollScroll = document.getElementById('rollScroll');
+  const topControls = document.getElementById('topControls');
+  const topControlsSpacer = document.getElementById('topControlsSpacer');
   const rollKeys = document.getElementById('rollKeys');
   const noteReadout = document.getElementById('noteReadout');
   const centsReadout = document.getElementById('centsReadout');
@@ -233,6 +236,13 @@
   }
 
   function setupSize() {
+    // 下部固定のコントロールバー(top-controls)は position:fixed のため通常フローの
+    // 高さに寄与しない。spacer要素にその実高さを反映させることで、ピッチロール/
+    // 音量パネルがコントロールバーの下に隠れないようにする。
+    if (topControls && topControlsSpacer) {
+      topControlsSpacer.style.height = topControls.offsetHeight + 'px';
+    }
+
     const panelHeight = rollScroll.parentElement.clientHeight || 320;
     ROW_HEIGHT = Math.max(18, Math.floor(panelHeight / VISIBLE_ROWS));
     canvasHeight = totalRows() * ROW_HEIGHT;
@@ -1544,6 +1554,8 @@
     setPlayIcon(false);
     hideCursor();
     refreshRecList();
+    setupSize();
+    redraw();
   }
 
   function selectRecording(rec) {
@@ -1556,14 +1568,15 @@
 
     pitchTrack = rec.pitchTrack;
     canvasWidth = Math.max(PIXELS_PER_SEC * initialBufferSec, (rec.duration + 5) * PIXELS_PER_SEC);
-    setupSize();
-    redraw();
 
     pbName.textContent = rec.name;
     pbScore.textContent = (rec.score !== null && rec.score !== undefined) ? ('SCORE ' + rec.score + '%') : '';
     pbProgressFill.style.width = '0%';
     pbInfoRow.classList.add('open');
     playToggleBtn.disabled = false;
+
+    setupSize();
+    redraw();
 
     audio.addEventListener('ended', function () {
       setPlayIcon(false);
