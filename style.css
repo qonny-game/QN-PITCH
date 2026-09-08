@@ -248,6 +248,8 @@ body {
   border: none;
 }
 .meta-div-btn:active { transform: scale(0.95); background: var(--accent-glow); color: var(--accent-primary); }
+.meta-div-btn + .meta-div-btn { border-left: 1px solid rgba(255, 255, 255, 0.08); }
+.meta-div-btn.active { color: var(--accent-primary); background: var(--accent-glow); }
 
 /* ---------- Pitch roll canvas panel ---------- */
 /* 左：固定の音階ラベル列（縦スクロール可、横スクロールしても常に見える）
@@ -337,6 +339,46 @@ body {
   flex-shrink: 0;
 }
 .stage-hint.live { color: var(--good); }
+
+/* ---------- Volume panel (RMS音量ライン、ピッチロールの下に固定高さで表示) ---------- */
+.volume-panel {
+  flex-shrink: 0;
+  height: 44px;
+  margin-top: 6px;
+  border-radius: 12px;
+  background: #16161b;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  overflow: hidden;
+  display: flex;
+}
+
+.volume-panel-label {
+  flex-shrink: 0;
+  width: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-right: 1px solid rgba(255, 255, 255, 0.08);
+  background: #18181f;
+  font-family: var(--font-display, 'Outfit'), sans-serif;
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 1px;
+  color: #55555f;
+}
+
+.volume-scroll {
+  flex: 1;
+  min-width: 0;
+  overflow-x: auto;
+  overflow-y: hidden;
+  -webkit-overflow-scrolling: touch;
+  touch-action: pan-x;
+}
+
+.volume-scroll canvas {
+  display: block;
+}
 
 /* ---------- Recordings list modal (LIST button opens this) ---------- */
 .rec-list-scroll {
@@ -476,6 +518,36 @@ body {
   max-height: 80vh;
   overflow-y: auto;
 }
+
+/* ---------- Key & Drone modal ---------- */
+.key-popup {
+  max-height: 80vh;
+  overflow-y: auto;
+}
+.key-select-row {
+  display: flex;
+  gap: 8px;
+  margin: 12px 0 4px;
+}
+.key-select {
+  flex: 1;
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: #1c1c24;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  color: #f0f0f3;
+  font-family: var(--font-display, 'Outfit'), sans-serif;
+  font-size: 14px;
+  font-weight: 600;
+  box-sizing: border-box;
+  appearance: none;
+  -webkit-appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%236b6b7b'%3E%3Cpath d='M7 10l5 5 5-5z'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 10px center;
+  background-size: 18px;
+}
+.key-select:focus { outline: none; border-color: var(--accent-primary); }
 
 .settings-row {
   display: flex;
@@ -619,6 +691,14 @@ body {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+.pb-score {
+  flex-shrink: 0;
+  font-family: var(--font-display, 'Outfit'), sans-serif;
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--accent-primary);
+  white-space: nowrap;
 }
 .pb-progress-track {
   flex: 1;

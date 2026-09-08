@@ -40,10 +40,15 @@
     jumpWindowMs: 150,     // 時間窓：この時間内での変化を見る
     jumpSemitones: 2,      // 音程変化量：時間窓内でこの半音数以上動いたら急変とみなす
     spikeRemoval: true,    // スパイク除去（孤立した単発の飛び値を除去）
-    rmsThreshold: 0,       // 音量ゲート：0〜100スケール（0=無効）
+    rmsThreshold: 0,       // 音量ゲート：0〜0.5のRMS実スケール（0.01刻み、0=無効）
     pitchDriftEnabled: false,   // 音程ズレハイライトのON/OFF
     pitchDriftDurationMs: 400,  // 同じ音を維持しているとみなす最低期間(ms)
     pitchDriftCents: 20,        // その区間の平均セントズレがこれを超えたら赤くする
+    vibratoEnabled: true,       // ビブラート検出のON/OFF（誤検出防止＋専用色表示）
+    vibratoMinRateHz: 3,        // ビブラートとみなす最低の揺れ周期（Hz）
+    vibratoMaxRateHz: 8,        // ビブラートとみなす最高の揺れ周期（Hz）
+    vibratoMinCents: 15,        // ビブラートとみなす最低の揺れ幅（セント、片振幅目安）
+    scoreCentsThreshold: 25,    // スコア計算用：維持区間の平均ズレがこれ以内なら「適正」とみなす
   };
   const FILTER_STORAGE_KEY = 'qnpitch-filter-settings';
   let filterSettings = loadFilterSettings();
@@ -53,7 +58,10 @@
       const raw = localStorage.getItem(FILTER_STORAGE_KEY);
       if (!raw) return Object.assign({}, FILTER_DEFAULTS);
       const parsed = JSON.parse(raw);
-      return Object.assign({}, FILTER_DEFAULTS, parsed);
+      const merged = Object.assign({}, FILTER_DEFAULTS, parsed);
+      // 旧バージョン（0〜100 / 0〜10スケール）で保存された値が残っている場合に備えてクランプする
+      merged.rmsThreshold = Math.max(0, Math.min(0.5, merged.rmsThreshold));
+      return merged;
     } catch (e) {
       return Object.assign({}, FILTER_DEFAULTS);
     }
@@ -62,6 +70,44 @@
     try {
       localStorage.setItem(FILTER_STORAGE_KEY, JSON.stringify(filterSettings));
     } catch (e) { /* localStorage不可でも致命的ではないので無視 */ }
+  }
+
+  // ---------- キー・スケール表示／基準ピッチ(ドローン)設定 ----------
+  const KEY_DEFAULTS = {
+    keyHighlightEnabled: false, // スケール構成音の背景ハイライトON/OFF
+    keyRoot: 0,                 // ルート音のPC(0=C, 1=C#, ... 11=B)
+    keyMode: 'major',           // 'major' or 'minor'
+    droneOctave: 3,             // ドローン再生時のオクターブ（3ならC3等、MIDIオクターブ表記）
+  };
+  const KEY_STORAGE_KEY = 'qnpitch-key-settings';
+  let keySettings = loadKeySettings();
+  let droneEnabled = false; // ドローンのON/OFFは再生状態なので保存はせず毎回OFFから始める
+
+  function loadKeySettings() {
+    try {
+      const raw = localStorage.getItem(KEY_STORAGE_KEY);
+      if (!raw) return Object.assign({}, KEY_DEFAULTS);
+      const parsed = JSON.parse(raw);
+      return Object.assign({}, KEY_DEFAULTS, parsed);
+    } catch (e) {
+      return Object.assign({}, KEY_DEFAULTS);
+    }
+  }
+  function saveKeySettings() {
+    try {
+      localStorage.setItem(KEY_STORAGE_KEY, JSON.stringify(keySettings));
+    } catch (e) { /* 無視 */ }
+  }
+
+  // メジャー/マイナースケールの、ルートからの半音間隔（0始まり）
+  const SCALE_INTERVALS = {
+    major: [0, 2, 4, 5, 7, 9, 11],
+    minor: [0, 2, 3, 5, 7, 8, 10],
+  };
+  function isInScale(midi) {
+    const pc = ((midi % 12) + 12) % 12;
+    const rel = ((pc - keySettings.keyRoot) % 12 + 12) % 12;
+    return SCALE_INTERVALS[keySettings.keyMode].indexOf(rel) !== -1;
   }
 
   // ---------- DOM ----------
@@ -86,6 +132,7 @@
   const playIcon = document.getElementById('playIcon');
   const playLabel = document.getElementById('playLabel');
   const pbName = document.getElementById('pbName');
+  const pbScore = document.getElementById('pbScore');
   const pbProgressFill = document.getElementById('pbProgressFill');
   const pbCloseBtn = document.getElementById('pbCloseBtn');
   const saveBackdrop = document.getElementById('saveBackdrop');
@@ -115,6 +162,28 @@
   const pitchDriftDurationValue = document.getElementById('pitchDriftDurationValue');
   const pitchDriftCentsInput = document.getElementById('pitchDriftCentsInput');
   const pitchDriftCentsValue = document.getElementById('pitchDriftCentsValue');
+  const vibratoToggle = document.getElementById('vibratoToggle');
+  const vibratoMinRateInput = document.getElementById('vibratoMinRateInput');
+  const vibratoMinRateValue = document.getElementById('vibratoMinRateValue');
+  const vibratoMaxRateInput = document.getElementById('vibratoMaxRateInput');
+  const vibratoMaxRateValue = document.getElementById('vibratoMaxRateValue');
+  const vibratoMinCentsInput = document.getElementById('vibratoMinCentsInput');
+  const vibratoMinCentsValue = document.getElementById('vibratoMinCentsValue');
+  const scoreCentsInput = document.getElementById('scoreCentsInput');
+  const scoreCentsValue = document.getElementById('scoreCentsValue');
+  const keyBtn = document.getElementById('keyBtn');
+  const keyBackdrop = document.getElementById('keyBackdrop');
+  const keyPopup = document.getElementById('keyPopup');
+  const keyCloseBtn = document.getElementById('keyCloseBtn');
+  const keyHighlightToggle = document.getElementById('keyHighlightToggle');
+  const keyRootSelect = document.getElementById('keyRootSelect');
+  const keyModeSelect = document.getElementById('keyModeSelect');
+  const droneToggle = document.getElementById('droneToggle');
+  const droneOctaveInput = document.getElementById('droneOctaveInput');
+  const droneOctaveValue = document.getElementById('droneOctaveValue');
+  const volumeScroll = document.getElementById('volumeScroll');
+  const volumeCanvas = document.getElementById('volumeCanvas');
+  const volCtx = volumeCanvas.getContext('2d');
 
   // ---------- キャンバス/鍵盤寸法 ----------
   const PIXELS_PER_SEC = 60;
@@ -138,6 +207,8 @@
     canvas.height = canvasHeight;
     canvas.width = canvasWidth;
     canvas.style.height = canvasHeight + 'px';
+
+    syncVolumeCanvasWidth();
 
     rollScroll.style.height = panelHeight + 'px';
     rollKeys.style.height = panelHeight + 'px';
@@ -251,7 +322,11 @@
       const isSharp = noteName.includes('#');
       const isC = noteName === 'C';
 
-      ctx.fillStyle = isSharp ? '#1a1a22' : '#1e1e28';
+      if (keySettings.keyHighlightEnabled && isInScale(m)) {
+        ctx.fillStyle = 'rgba(74, 222, 128, 0.10)';
+      } else {
+        ctx.fillStyle = isSharp ? '#1a1a22' : '#1e1e28';
+      }
       ctx.fillRect(0, y, canvasWidth, ROW_HEIGHT);
 
       ctx.strokeStyle = isC ? 'rgba(59,130,246,0.28)' : '#2a2a34';
@@ -273,7 +348,7 @@
     if (!track.length) return track;
 
     // 1. 音量ゲート：閾値未満のrmsは無効点にする
-    const rmsThreshold = filterSettings.rmsThreshold / 100; // 0-100 → 0-1
+    const rmsThreshold = filterSettings.rmsThreshold; // RMS実スケールの値をそのまま使用
     let filtered = track.map(function (p) {
       if (p.voiced && rmsThreshold > 0 && (p.rms === undefined || p.rms < rmsThreshold)) {
         return Object.assign({}, p, { voiced: false });
@@ -326,45 +401,119 @@
   // フィルタ後のtrackを対象に、「同じノート(半音)を最低保持期間以上維持している
   // 区間」を検出し、その区間内の平均セントズレが閾値を超えていたら
   // {startT, endT} の赤帯として返す。
-  function detectDriftRegions(track) {
-    if (!filterSettings.pitchDriftEnabled || !track.length) return [];
-
+  // 「同じノート(半音)が最低期間以上続いている区間」を検出する共通関数。
+  // ズレハイライト・ビブラート判定・スコア計算のすべてがこれを土台にする。
+  // 返り値: [{ startT, endT, startIdx, endIdx }]  (endIdxは含む・voicedな最後の点)
+  function detectSustainedRegions(track, minDurationSec) {
+    if (!track.length) return [];
     const regions = [];
-    const minDurationSec = filterSettings.pitchDriftDurationMs / 1000;
-    const centsThreshold = filterSettings.pitchDriftCents;
-
     let i = 0;
     while (i < track.length) {
       if (!track[i].voiced) { i++; continue; }
       const note = Math.round(track[i].midi);
       let j = i;
-      // 同じノートが続く限り区間を伸ばす（無声点はスキップして許容）
       while (j < track.length) {
         const p = track[j];
         if (p.voiced && Math.round(p.midi) !== note) break;
         j++;
       }
-      // [i, j) が「同じノートの区間」（末尾の無声点は含めない）
       let end = j - 1;
       while (end > i && !track[end].voiced) end--;
 
       const startT = track[i].t;
       const endT = track[end].t;
       if (endT - startT >= minDurationSec) {
-        let sum = 0, count = 0;
-        for (let k = i; k <= end; k++) {
-          if (track[k].voiced) { sum += track[k].cents; count++; }
-        }
-        if (count > 0) {
-          const avgCents = sum / count;
-          if (Math.abs(avgCents) > centsThreshold) {
-            regions.push({ startT: startT, endT: endT });
-          }
-        }
+        regions.push({ startT: startT, endT: endT, startIdx: i, endIdx: end });
       }
       i = j;
     }
     return regions;
+  }
+
+  // 維持区間内が「ビブラート」かどうかを判定する。
+  // セント値の符号反転（山→谷）の間隔から揺れの周期(Hz)を推定し、
+  // 設定範囲内の周期・十分な振幅で規則的に揺れていればビブラートとみなす。
+  function isVibrato(track, startIdx, endIdx) {
+    const pts = [];
+    for (let k = startIdx; k <= endIdx; k++) {
+      if (track[k].voiced) pts.push(track[k]);
+    }
+    if (pts.length < 6) return false;
+
+    // 符号反転（ゼロクロス）の位置（時刻）を集める
+    const crossings = [];
+    for (let k = 1; k < pts.length; k++) {
+      const a = pts[k - 1].cents, b = pts[k].cents;
+      if ((a >= 0 && b < 0) || (a < 0 && b >= 0)) crossings.push(pts[k].t);
+    }
+    if (crossings.length < 3) return false; // 往復2回分未満では周期性を判断できない
+
+    // ゼロクロス間隔の半分の逆数 ≒ 揺れの周波数(Hz)
+    const halfPeriods = [];
+    for (let k = 1; k < crossings.length; k++) halfPeriods.push(crossings[k] - crossings[k - 1]);
+    const avgHalfPeriod = halfPeriods.reduce(function (a, b) { return a + b; }, 0) / halfPeriods.length;
+    if (avgHalfPeriod <= 0) return false;
+    const rateHz = 1 / (avgHalfPeriod * 2);
+
+    // 振幅（セントの絶対値の平均）が十分あるか
+    const avgAbsCents = pts.reduce(function (a, p) { return a + Math.abs(p.cents); }, 0) / pts.length;
+
+    return rateHz >= filterSettings.vibratoMinRateHz &&
+           rateHz <= filterSettings.vibratoMaxRateHz &&
+           avgAbsCents >= filterSettings.vibratoMinCents;
+  }
+
+  function detectDriftRegions(track) {
+    if (!filterSettings.pitchDriftEnabled || !track.length) return [];
+    const minDurationSec = filterSettings.pitchDriftDurationMs / 1000;
+    const centsThreshold = filterSettings.pitchDriftCents;
+    const sustained = detectSustainedRegions(track, minDurationSec);
+    const regions = [];
+    sustained.forEach(function (r) {
+      if (filterSettings.vibratoEnabled && isVibrato(track, r.startIdx, r.endIdx)) return; // ビブラートは誤検出防止のため除外
+      let sum = 0, count = 0;
+      for (let k = r.startIdx; k <= r.endIdx; k++) {
+        if (track[k].voiced) { sum += track[k].cents; count++; }
+      }
+      if (count > 0 && Math.abs(sum / count) > centsThreshold) {
+        regions.push({ startT: r.startT, endT: r.endT });
+      }
+    });
+    return regions;
+  }
+
+  // ビブラートと判定された維持区間だけを抽出（ロール上に専用色で表示するため）
+  function detectVibratoRegions(track) {
+    if (!filterSettings.vibratoEnabled || !track.length) return [];
+    const minDurationSec = filterSettings.pitchDriftDurationMs / 1000;
+    const sustained = detectSustainedRegions(track, minDurationSec);
+    const regions = [];
+    sustained.forEach(function (r) {
+      if (isVibrato(track, r.startIdx, r.endIdx)) {
+        regions.push({ startT: r.startT, endT: r.endT });
+      }
+    });
+    return regions;
+  }
+
+  // スコア計算：維持区間のうち、ビブラートを除いて平均ズレが閾値以内の割合(%)
+  function calcScore(track) {
+    const minDurationSec = filterSettings.pitchDriftDurationMs / 1000;
+    const sustained = detectSustainedRegions(track, minDurationSec);
+    const scoredRegions = filterSettings.vibratoEnabled
+      ? sustained.filter(function (r) { return !isVibrato(track, r.startIdx, r.endIdx); })
+      : sustained;
+    if (!scoredRegions.length) return null; // 判定対象がなければスコアなし
+
+    let okCount = 0;
+    scoredRegions.forEach(function (r) {
+      let sum = 0, count = 0;
+      for (let k = r.startIdx; k <= r.endIdx; k++) {
+        if (track[k].voiced) { sum += track[k].cents; count++; }
+      }
+      if (count > 0 && Math.abs(sum / count) <= filterSettings.scoreCentsThreshold) okCount++;
+    });
+    return Math.round((okCount / scoredRegions.length) * 100);
   }
 
   function redraw() {
@@ -372,6 +521,17 @@
     if (pitchTrack.length < 2) return;
 
     const track = applyFilters(pitchTrack);
+
+    // ビブラート区間：紫の背景（ズレハイライトより先に描画し、ズレハイライトを優先表示させる）
+    const vibratoRegions = detectVibratoRegions(track);
+    if (vibratoRegions.length) {
+      ctx.fillStyle = 'rgba(167, 139, 250, 0.18)';
+      vibratoRegions.forEach(function (r) {
+        const x1 = r.startT * PIXELS_PER_SEC;
+        const x2 = r.endT * PIXELS_PER_SEC;
+        ctx.fillRect(x1, 0, Math.max(2, x2 - x1), canvasHeight);
+      });
+    }
 
     // 音程ズレハイライト：赤帯を線より先に描画（背景として敷く）
     const driftRegions = detectDriftRegions(track);
@@ -415,6 +575,7 @@
     }
 
     drawCursor();
+    drawVolumeLine();
   }
 
   function ensureWidth(tSeconds) {
@@ -422,13 +583,62 @@
     if (needed > canvasWidth) {
       canvasWidth = needed;
       canvas.width = canvasWidth;
+      syncVolumeCanvasWidth();
       redraw();
     }
+  }
+
+  // ---------- 音量ライン（RMS波形、ピッチロールと横幅・横スクロールを同期） ----------
+  function syncVolumeCanvasWidth() {
+    volumeCanvas.width = canvasWidth;
+    const h = volumeCanvas.parentElement.clientHeight || 40;
+    volumeCanvas.height = h;
+    volumeCanvas.style.height = h + 'px';
+  }
+
+  function drawVolumeLine() {
+    const w = volumeCanvas.width;
+    const h = volumeCanvas.height;
+    volCtx.clearRect(0, 0, w, h);
+
+    // 中央の基準線
+    volCtx.strokeStyle = 'rgba(255,255,255,0.08)';
+    volCtx.lineWidth = 1;
+    volCtx.beginPath();
+    volCtx.moveTo(0, h - 1);
+    volCtx.lineTo(w, h - 1);
+    volCtx.stroke();
+
+    if (pitchTrack.length < 2) return;
+
+    volCtx.lineWidth = 1.5;
+    volCtx.lineCap = 'round';
+    volCtx.strokeStyle = '#60a5fa';
+    volCtx.beginPath();
+    let started = false;
+    for (let i = 0; i < pitchTrack.length; i++) {
+      const p = pitchTrack[i];
+      const rms = p.rms || 0;
+      const level = Math.max(0, Math.min(1, rms * 4)); // 見やすさのため軽く増幅
+      const x = p.t * PIXELS_PER_SEC;
+      const y = h - level * (h - 2) - 1;
+      if (!started) { volCtx.moveTo(x, y); started = true; }
+      else { volCtx.lineTo(x, y); }
+    }
+    volCtx.stroke();
   }
 
   // ---------- 縦スクロール同期（キャンバス⇄鍵盤ラベル列） ----------
   rollScroll.addEventListener('scroll', () => {
     rollKeys.scrollTop = rollScroll.scrollTop;
+    if (volumeScroll.scrollLeft !== rollScroll.scrollLeft) {
+      volumeScroll.scrollLeft = rollScroll.scrollLeft;
+    }
+  });
+  volumeScroll.addEventListener('scroll', () => {
+    if (rollScroll.scrollLeft !== volumeScroll.scrollLeft) {
+      rollScroll.scrollLeft = volumeScroll.scrollLeft;
+    }
   });
 
   // ---------- 再生カーソル ----------
@@ -461,6 +671,58 @@
   let sourceNode = null;
   let rafId = null;
   let recording = false;
+
+  // ---------- 基準ピッチ再生（ドローン） ----------
+  // マイク用audioCtxとは独立させる：録音のたびにaudioCtxを破棄/再生成するため、
+  // ドローン再生中に録音を開始/停止してもドローン音が途切れないようにする。
+  let droneCtx = null;
+  let droneOsc = null;
+  let droneGain = null;
+
+  function midiFromKeyRootAndOctave() {
+    // オクターブ表記はMIDIオクターブ（C3ならmidi 48相当）に合わせる。C4=60を基準に計算。
+    return keySettings.keyRoot + (keySettings.droneOctave + 1) * 12;
+  }
+  function midiToFreq(midi) {
+    return 440 * Math.pow(2, (midi - 69) / 12);
+  }
+  function startDrone() {
+    if (droneCtx) return;
+    droneCtx = new (window.AudioContext || window.webkitAudioContext)();
+    droneOsc = droneCtx.createOscillator();
+    droneGain = droneCtx.createGain();
+    droneOsc.type = 'sine';
+    droneOsc.frequency.value = midiToFreq(midiFromKeyRootAndOctave());
+    droneGain.gain.value = 0; // クリックノイズ防止のため0から立ち上げる
+    droneOsc.connect(droneGain);
+    droneGain.connect(droneCtx.destination);
+    droneOsc.start();
+    droneGain.gain.linearRampToValueAtTime(0.18, droneCtx.currentTime + 0.05);
+  }
+  function stopDrone() {
+    if (!droneCtx) return;
+    const ctxToClose = droneCtx;
+    const oscToStop = droneOsc;
+    const gainToRelease = droneGain;
+    droneCtx = null;
+    droneOsc = null;
+    droneGain = null;
+    try {
+      gainToRelease.gain.linearRampToValueAtTime(0, ctxToClose.currentTime + 0.05);
+      setTimeout(function () {
+        try { oscToStop.stop(); } catch (e) { /* 既に停止済みの場合は無視 */ }
+        ctxToClose.close();
+      }, 80);
+    } catch (e) {
+      try { oscToStop.stop(); } catch (e2) { /* 無視 */ }
+      ctxToClose.close();
+    }
+  }
+  function updateDroneFrequency() {
+    if (droneOsc) {
+      droneOsc.frequency.setValueAtTime(midiToFreq(midiFromKeyRootAndOctave()), droneCtx.currentTime);
+    }
+  }
 
   let mediaRecorder = null;
   let recordedChunks = [];
@@ -614,6 +876,7 @@
     const blob = new Blob(recordedChunks, { type: (recordedChunks[0] && recordedChunks[0].type) || 'audio/webm' });
     const duration = finalTrack.length ? finalTrack[finalTrack.length - 1].t : 0;
     const defaultName = makeRecordingName();
+    const score = calcScore(applyFilters(finalTrack));
 
     const chosenName = await openSaveDialog(defaultName);
 
@@ -624,9 +887,9 @@
     }
 
     try {
-      const newId = await dbAddRecording({ name: chosenName, blob, pitchTrack: finalTrack, duration, createdAt: Date.now() });
+      const newId = await dbAddRecording({ name: chosenName, blob, pitchTrack: finalTrack, duration, score, createdAt: Date.now() });
       statusHint.textContent = '「' + chosenName + '」を保存しました';
-      selectRecording({ id: newId, name: chosenName, blob, pitchTrack: finalTrack, duration, createdAt: Date.now() });
+      selectRecording({ id: newId, name: chosenName, blob, pitchTrack: finalTrack, duration, score, createdAt: Date.now() });
     } catch (err) {
       console.error(err);
       statusHint.textContent = '保存に失敗しました';
@@ -716,6 +979,7 @@
     centsReadout.className = 'cents-readout';
     centsReadout.textContent = '-- ¢';
     rollScroll.scrollLeft = 0;
+    volumeScroll.scrollLeft = 0;
   });
 
   // ============================================================
@@ -840,7 +1104,11 @@
       nameEl.textContent = rec.name;
       const metaEl = document.createElement('div');
       metaEl.className = 'rec-row-meta';
-      metaEl.textContent = formatDateTime(rec.createdAt) + ' ・ ' + formatDuration(rec.duration);
+      let metaText = formatDateTime(rec.createdAt) + ' ・ ' + formatDuration(rec.duration);
+      if (rec.score !== null && rec.score !== undefined) {
+        metaText += ' ・ ' + rec.score + '%';
+      }
+      metaEl.textContent = metaText;
       info.appendChild(nameEl);
       info.appendChild(metaEl);
 
@@ -902,12 +1170,21 @@
     jumpSemitonesValue.textContent = filterSettings.jumpSemitones;
     spikeToggle.setAttribute('aria-checked', filterSettings.spikeRemoval ? 'true' : 'false');
     rmsThresholdInput.value = filterSettings.rmsThreshold;
-    rmsThresholdValue.textContent = filterSettings.rmsThreshold;
+    rmsThresholdValue.textContent = filterSettings.rmsThreshold.toFixed(2);
     pitchDriftToggle.setAttribute('aria-checked', filterSettings.pitchDriftEnabled ? 'true' : 'false');
     pitchDriftDurationInput.value = filterSettings.pitchDriftDurationMs;
     pitchDriftDurationValue.textContent = filterSettings.pitchDriftDurationMs;
     pitchDriftCentsInput.value = filterSettings.pitchDriftCents;
     pitchDriftCentsValue.textContent = filterSettings.pitchDriftCents;
+    vibratoToggle.setAttribute('aria-checked', filterSettings.vibratoEnabled ? 'true' : 'false');
+    vibratoMinRateInput.value = filterSettings.vibratoMinRateHz;
+    vibratoMinRateValue.textContent = filterSettings.vibratoMinRateHz.toFixed(1);
+    vibratoMaxRateInput.value = filterSettings.vibratoMaxRateHz;
+    vibratoMaxRateValue.textContent = filterSettings.vibratoMaxRateHz.toFixed(1);
+    vibratoMinCentsInput.value = filterSettings.vibratoMinCents;
+    vibratoMinCentsValue.textContent = filterSettings.vibratoMinCents;
+    scoreCentsInput.value = filterSettings.scoreCentsThreshold;
+    scoreCentsValue.textContent = filterSettings.scoreCentsThreshold;
   }
 
   function openSettingsModal() {
@@ -926,6 +1203,60 @@
   settingsCloseBtn.addEventListener('click', closeSettingsModal);
   settingsBackdrop.addEventListener('click', closeSettingsModal);
 
+  // ---------- キー・スケール＆ドローン設定モーダル ----------
+  function reflectKeySettingsToUI() {
+    keyHighlightToggle.setAttribute('aria-checked', keySettings.keyHighlightEnabled ? 'true' : 'false');
+    keyRootSelect.value = String(keySettings.keyRoot);
+    keyModeSelect.value = keySettings.keyMode;
+    droneToggle.setAttribute('aria-checked', droneEnabled ? 'true' : 'false');
+    droneOctaveInput.value = keySettings.droneOctave;
+    droneOctaveValue.textContent = keySettings.droneOctave;
+  }
+  function openKeyModal() {
+    reflectKeySettingsToUI();
+    keyBackdrop.classList.add('open');
+    keyPopup.classList.add('open');
+    keyBtn.classList.add('active');
+  }
+  function closeKeyModal() {
+    keyBackdrop.classList.remove('open');
+    keyPopup.classList.remove('open');
+    keyBtn.classList.remove('active');
+  }
+  keyBtn.addEventListener('click', openKeyModal);
+  keyCloseBtn.addEventListener('click', closeKeyModal);
+  keyBackdrop.addEventListener('click', closeKeyModal);
+
+  keyHighlightToggle.addEventListener('click', function () {
+    keySettings.keyHighlightEnabled = !keySettings.keyHighlightEnabled;
+    keyHighlightToggle.setAttribute('aria-checked', keySettings.keyHighlightEnabled ? 'true' : 'false');
+    saveKeySettings();
+    redraw();
+  });
+  keyRootSelect.addEventListener('change', function () {
+    keySettings.keyRoot = parseInt(keyRootSelect.value, 10);
+    saveKeySettings();
+    updateDroneFrequency();
+    redraw();
+  });
+  keyModeSelect.addEventListener('change', function () {
+    keySettings.keyMode = keyModeSelect.value;
+    saveKeySettings();
+    redraw();
+  });
+  droneToggle.addEventListener('click', function () {
+    droneEnabled = !droneEnabled;
+    droneToggle.setAttribute('aria-checked', droneEnabled ? 'true' : 'false');
+    if (droneEnabled) startDrone(); else stopDrone();
+  });
+  droneOctaveInput.addEventListener('input', function () {
+    const v = parseInt(droneOctaveInput.value, 10);
+    keySettings.droneOctave = isNaN(v) ? KEY_DEFAULTS.droneOctave : Math.max(1, Math.min(6, v));
+    droneOctaveValue.textContent = keySettings.droneOctave;
+    saveKeySettings();
+    updateDroneFrequency();
+  });
+
   // スライダーはinputイベントでドラッグ中もリアルタイムに反映する
   jumpWindowInput.addEventListener('input', function () {
     const v = parseInt(jumpWindowInput.value, 10);
@@ -942,9 +1273,9 @@
     redraw();
   });
   rmsThresholdInput.addEventListener('input', function () {
-    const v = parseInt(rmsThresholdInput.value, 10);
-    filterSettings.rmsThreshold = isNaN(v) ? FILTER_DEFAULTS.rmsThreshold : Math.max(0, Math.min(100, v));
-    rmsThresholdValue.textContent = filterSettings.rmsThreshold;
+    const v = parseFloat(rmsThresholdInput.value);
+    filterSettings.rmsThreshold = isNaN(v) ? FILTER_DEFAULTS.rmsThreshold : Math.max(0, Math.min(0.5, Math.round(v * 100) / 100));
+    rmsThresholdValue.textContent = filterSettings.rmsThreshold.toFixed(2);
     saveFilterSettings();
     redraw();
   });
@@ -973,6 +1304,39 @@
     pitchDriftCentsValue.textContent = filterSettings.pitchDriftCents;
     saveFilterSettings();
     redraw();
+  });
+  vibratoToggle.addEventListener('click', function () {
+    filterSettings.vibratoEnabled = !filterSettings.vibratoEnabled;
+    vibratoToggle.setAttribute('aria-checked', filterSettings.vibratoEnabled ? 'true' : 'false');
+    saveFilterSettings();
+    redraw();
+  });
+  vibratoMinRateInput.addEventListener('input', function () {
+    const v = parseFloat(vibratoMinRateInput.value);
+    filterSettings.vibratoMinRateHz = isNaN(v) ? FILTER_DEFAULTS.vibratoMinRateHz : Math.max(1, Math.min(10, v));
+    vibratoMinRateValue.textContent = filterSettings.vibratoMinRateHz.toFixed(1);
+    saveFilterSettings();
+    redraw();
+  });
+  vibratoMaxRateInput.addEventListener('input', function () {
+    const v = parseFloat(vibratoMaxRateInput.value);
+    filterSettings.vibratoMaxRateHz = isNaN(v) ? FILTER_DEFAULTS.vibratoMaxRateHz : Math.max(1, Math.min(12, v));
+    vibratoMaxRateValue.textContent = filterSettings.vibratoMaxRateHz.toFixed(1);
+    saveFilterSettings();
+    redraw();
+  });
+  vibratoMinCentsInput.addEventListener('input', function () {
+    const v = parseInt(vibratoMinCentsInput.value, 10);
+    filterSettings.vibratoMinCents = isNaN(v) ? FILTER_DEFAULTS.vibratoMinCents : Math.max(5, Math.min(50, v));
+    vibratoMinCentsValue.textContent = filterSettings.vibratoMinCents;
+    saveFilterSettings();
+    redraw();
+  });
+  scoreCentsInput.addEventListener('input', function () {
+    const v = parseInt(scoreCentsInput.value, 10);
+    filterSettings.scoreCentsThreshold = isNaN(v) ? FILTER_DEFAULTS.scoreCentsThreshold : Math.max(1, Math.min(50, v));
+    scoreCentsValue.textContent = filterSettings.scoreCentsThreshold;
+    saveFilterSettings();
   });
   settingsResetBtn.addEventListener('click', function () {
     filterSettings = Object.assign({}, FILTER_DEFAULTS);
@@ -1022,6 +1386,7 @@
     redraw();
 
     pbName.textContent = rec.name;
+    pbScore.textContent = (rec.score !== null && rec.score !== undefined) ? ('SCORE ' + rec.score + '%') : '';
     pbProgressFill.style.width = '0%';
     pbInfoRow.classList.add('open');
     playToggleBtn.disabled = false;
