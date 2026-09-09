@@ -57,9 +57,9 @@ body {
   width: 100%;
   max-width: 1400px;
   display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 20px;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 14px;
   position: relative;
   z-index: 200;
   flex-shrink: 0;
@@ -92,14 +92,7 @@ body {
   vertical-align: middle;
 }
 
-#headerControls {
-  flex-shrink: 0;
-  display: flex;
-  align-items: center;
-  gap: 10px;
-}
-
-.header-btn-wrapper { position: relative; }
+.header-btn-wrapper { position: relative; flex-shrink: 0; }
 
 /* ---------- QN Apps hamburger menu ---------- */
 .qn-nav-hamburger {

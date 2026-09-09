@@ -12,33 +12,35 @@
 <body>
 
 <div id="appHeader">
+  <div class="header-btn-wrapper" id="qnNavWrapper">
+    <button class="qn-nav-hamburger" id="qnNavHamburger" title="QN Apps">
+      <svg viewBox="0 0 24 24"><path d="M3 6h18v2H3V6zm0 5h18v2H3v-2zm0 5h18v2H3v-2z"/></svg>
+    </button>
+    <div class="qn-nav-dropdown" id="qnNavDropdown">
+      <a class="qn-nav-item" data-qn-app="player" href="https://qonny-game.github.io/QN-PLAYER/" title="QNPLAYER" target="_blank" rel="noopener">
+        <svg viewBox="0 0 24 24"><path d="M12 3v10.55A4 4 0 1 0 14 17V7h4V3h-6z"/></svg>
+        <span>PLAYER</span>
+      </a>
+      <a class="qn-nav-item current" data-qn-app="pitch" href="https://qonny-game.github.io/QN-PITCH/" title="QNPITCH" target="_blank" rel="noopener">
+        <svg viewBox="0 0 24 24"><path d="M3 17h3v-6H3v6zm5 3h3V9H8v11zm5-15v18h3V5h-3zm5 8v7h3v-7h-3z"/></svg>
+        <span>PITCH</span>
+      </a>
+      <a class="qn-nav-item" data-qn-app="phrase" href="https://qonny-game.github.io/QN-PHRASE" title="QNPHRASE" target="_blank" rel="noopener">
+        <svg viewBox="0 0 24 24"><path d="M9 18V5l12-2v13M9 18a3 3 0 1 1-6 0 3 3 0 0 1 6 0zm12-2a3 3 0 1 1-6 0 3 3 0 0 1 6 0z"/></svg>
+        <span>PHRASE</span>
+      </a>
+      <a class="qn-nav-item" data-qn-app="tempo" href="https://qonny-game.github.io/QN-TEMPO/" title="QNTEMPO" target="_blank" rel="noopener">
+        <svg viewBox="0 0 24 24"><path d="M9 2v2h6V2h2v2.06c1.14.2 2 1.2 2 2.4 0 .77-.35 1.46-.9 1.92L20 20H4l1.9-11.62A2.5 2.5 0 0 1 5 6.46c0-1.2.86-2.2 2-2.4V2h2zm2.6 6.5-1.9 9.9h2.6l1.6-8.4-2.3-1.5z"/></svg>
+        <span>TEMPO</span>
+      </a>
+      <a class="qn-nav-item" data-qn-app="tuner" href="https://qonny-game.github.io/QN-TUNER/" title="QNTUNER" target="_blank" rel="noopener">
+        <svg viewBox="0 0 24 24"><path d="M9 3v6.28A3.5 3.5 0 1 0 11 12.7V7h4V3H9zm7 8h-2v10h2V11zm-8 0H6v10h2V11z"/></svg>
+        <span>TUNER</span>
+      </a>
+    </div>
+  </div>
   <div id="appHeaderText">
     <h1 id="appLogo"><span id="appLogoQN">QN</span>PITCH <span id="appVersion">v0.2.4</span></h1>
-  </div>
-  <div id="headerControls">
-    <div class="header-btn-wrapper" id="qnNavWrapper">
-      <button class="qn-nav-hamburger" id="qnNavHamburger" title="QN Apps">
-        <svg viewBox="0 0 24 24"><path d="M3 6h18v2H3V6zm0 5h18v2H3v-2zm0 5h18v2H3v-2z"/></svg>
-      </button>
-      <div class="qn-nav-dropdown" id="qnNavDropdown">
-        <a class="qn-nav-item" data-qn-app="player" href="https://qonny-game.github.io/QN-PLAYER/" title="QNPLAYER" target="_blank" rel="noopener">
-          <svg viewBox="0 0 24 24"><path d="M12 3v10.55A4 4 0 1 0 14 17V7h4V3h-6z"/></svg>
-          <span>PLAYER</span>
-        </a>
-        <a class="qn-nav-item" data-qn-app="tuner" href="https://qonny-game.github.io/QN-TUNER/" title="QNTUNER" target="_blank" rel="noopener">
-          <svg viewBox="0 0 24 24"><path d="M9 3v6.28A3.5 3.5 0 1 0 11 12.7V7h4V3H9zm7 8h-2v10h2V11zm-8 0H6v10h2V11z"/></svg>
-          <span>TUNER</span>
-        </a>
-        <a class="qn-nav-item" data-qn-app="tempo" href="https://qonny-game.github.io/QN-TEMPO/" title="QNTEMPO" target="_blank" rel="noopener">
-          <svg viewBox="0 0 24 24"><path d="M9 2v2h6V2h2v2.06c1.14.2 2 1.2 2 2.4 0 .77-.35 1.46-.9 1.92L20 20H4l1.9-11.62A2.5 2.5 0 0 1 5 6.46c0-1.2.86-2.2 2-2.4V2h2zm2.6 6.5-1.9 9.9h2.6l1.6-8.4-2.3-1.5z"/></svg>
-          <span>TEMPO</span>
-        </a>
-        <a class="qn-nav-item current" data-qn-app="pitch" href="https://qonny-game.github.io/QN-PITCH/" title="QNPITCH" target="_blank" rel="noopener">
-          <svg viewBox="0 0 24 24"><path d="M3 17h3v-6H3v6zm5 3h3V9H8v11zm5-15v18h3V5h-3zm5 8v7h3v-7h-3z"/></svg>
-          <span>PITCH</span>
-        </a>
-      </div>
-    </div>
   </div>
 </div>
 
