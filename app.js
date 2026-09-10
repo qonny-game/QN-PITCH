@@ -150,6 +150,11 @@
   const recBtn = document.getElementById('recBtn');
   const recLabel = document.getElementById('recLabel');
   const clearBtn = document.getElementById('clearBtn');
+  const clearConfirmBackdrop = document.getElementById('clearConfirmBackdrop');
+  const clearConfirmPopup = document.getElementById('clearConfirmPopup');
+  const clearConfirmOkBtn = document.getElementById('clearConfirmOkBtn');
+  const clearConfirmCancelBtn = document.getElementById('clearConfirmCancelBtn');
+  const saveBtn = document.getElementById('saveBtn');
   const listBtn = document.getElementById('listBtn');
   const recListBackdrop = document.getElementById('recListBackdrop');
   const recListPopup = document.getElementById('recListPopup');
@@ -201,7 +206,7 @@
   const vibratoMinCentsValue = document.getElementById('vibratoMinCentsValue');
   const scoreCentsInput = document.getElementById('scoreCentsInput');
   const scoreCentsValue = document.getElementById('scoreCentsValue');
-  const keyBtn = document.getElementById('keyBtn');
+  const keyBtn = document.getElementById('openKeyFromSettingsBtn');
   const keyBackdrop = document.getElementById('keyBackdrop');
   const keyPopup = document.getElementById('keyPopup');
   const keyCloseBtn = document.getElementById('keyCloseBtn');
@@ -270,6 +275,8 @@
       label.style.top = y + 'px';
       label.style.height = ROW_HEIGHT + 'px';
       label.textContent = midiToNoteName(m);
+      label.dataset.midi = String(m);
+      attachKeyPressHandlers(label, m);
       rollKeys.appendChild(label);
     }
     rollKeys.scrollTop = rollScroll.scrollTop;
@@ -361,6 +368,30 @@
     return (FULL_RANGE.max - clamped) * ROW_HEIGHT;
   }
 
+  // ノートラベルを押している間だけ発音し、離したら止める（マウス・タッチ両対応）
+  function attachKeyPressHandlers(label, midi) {
+    function onDown(e) {
+      if (recording) return; // 録音中はマイク音と混ざるため無効
+      e.preventDefault();
+      label.classList.add('pressed');
+      startKeyPressTone(midi);
+      if (label.setPointerCapture && e.pointerId !== undefined) {
+        try { label.setPointerCapture(e.pointerId); } catch (err) { /* 無視 */ }
+      }
+    }
+    function onUp() {
+      label.classList.remove('pressed');
+      stopKeyPressTone();
+    }
+    label.addEventListener('pointerdown', onDown);
+    label.addEventListener('pointerup', onUp);
+    label.addEventListener('pointerleave', onUp);
+    label.addEventListener('pointercancel', onUp);
+  }
+
+  // ノートラベルをタップしている間、対応する行番号（MIDI）を保持する
+  let activeKeyPressMidi = null;
+
   function drawBackground() {
     ctx.clearRect(0, 0, canvasWidth, canvasHeight);
     for (let m = FULL_RANGE.min; m <= FULL_RANGE.max; m++) {
@@ -369,7 +400,9 @@
       const isSharp = noteName.includes('#');
       const isC = noteName === 'C';
 
-      if (keySettings.keyHighlightEnabled && isInScale(m)) {
+      if (activeKeyPressMidi !== null && m === activeKeyPressMidi) {
+        ctx.fillStyle = 'rgba(236, 72, 153, 0.32)';
+      } else if (keySettings.keyHighlightEnabled && isInScale(m)) {
         ctx.fillStyle = 'rgba(74, 222, 128, 0.10)';
       } else {
         ctx.fillStyle = isSharp ? '#1a1a22' : '#1e1e28';
@@ -733,6 +766,7 @@
   let sourceNode = null;
   let rafId = null;
   let recording = false;
+  let pendingRecording = null; // 録音直後・未保存の録音 { blob, pitchTrack, duration, score, name }
 
   // ---------- 基準ピッチ再生（ドローン） ----------
   // マイク用audioCtxとは独立させる：録音のたびにaudioCtxを破棄/再生成するため、
@@ -783,6 +817,53 @@
   function updateDroneFrequency() {
     if (droneOsc) {
       droneOsc.frequency.setValueAtTime(midiToFreq(midiFromKeyRootAndOctave()), droneCtx.currentTime);
+    }
+  }
+
+  // ---------- ノートラベルのタップ発音（左側の鍵盤ラベルを押している間、その音を鳴らす） ----------
+  let keyPressCtx = null;
+  let keyPressOsc = null;
+  let keyPressGain = null;
+
+  function startKeyPressTone(midi) {
+    stopKeyPressTone();
+    keyPressCtx = new (window.AudioContext || window.webkitAudioContext)();
+    keyPressOsc = keyPressCtx.createOscillator();
+    keyPressGain = keyPressCtx.createGain();
+    keyPressOsc.type = 'sine';
+    keyPressOsc.frequency.value = midiToFreq(midi);
+    keyPressGain.gain.value = 0; // クリックノイズ防止のため0から立ち上げる
+    keyPressOsc.connect(keyPressGain);
+    keyPressGain.connect(keyPressCtx.destination);
+    keyPressOsc.start();
+    keyPressGain.gain.linearRampToValueAtTime(0.22, keyPressCtx.currentTime + 0.03);
+
+    activeKeyPressMidi = midi;
+    redraw();
+  }
+
+  function stopKeyPressTone() {
+    if (keyPressCtx) {
+      const ctxToClose = keyPressCtx;
+      const oscToStop = keyPressOsc;
+      const gainToRelease = keyPressGain;
+      keyPressCtx = null;
+      keyPressOsc = null;
+      keyPressGain = null;
+      try {
+        gainToRelease.gain.linearRampToValueAtTime(0, ctxToClose.currentTime + 0.05);
+        setTimeout(function () {
+          try { oscToStop.stop(); } catch (e) { /* 既に停止済みの場合は無視 */ }
+          ctxToClose.close();
+        }, 80);
+      } catch (e) {
+        try { oscToStop.stop(); } catch (e2) { /* 無視 */ }
+        try { ctxToClose.close(); } catch (e3) { /* 無視 */ }
+      }
+    }
+    if (activeKeyPressMidi !== null) {
+      activeKeyPressMidi = null;
+      redraw();
     }
   }
 
@@ -962,6 +1043,11 @@
   }
 
   async function beginRecording() {
+    // 前回の録音が未保存のまま残っている場合、新しい録音を始めた時点で破棄する
+    pendingRecording = null;
+    updateSaveBtnState();
+    stopKeyPressTone(); // 押しっぱなしのノートタップ音があれば止める
+
     // 毎回マイクを取得し直す：一度停止したMediaRecorder/streamを使い回すと、
     // ブラウザによっては2回目以降のdataavailableが発火せず録音が空になる
     // ことがあるため、録音のたびに新しいgetUserMediaストリームを張り直す。
@@ -994,7 +1080,6 @@
     cancelAnimationFrame(rafId);
     recBtn.classList.remove('recording');
     recLabel.textContent = 'REC';
-    statusHint.textContent = 'ファイル名を確認してください';
     statusHint.classList.remove('live');
 
     const finalTrack = pitchTrack.slice();
@@ -1014,23 +1099,41 @@
     const defaultName = makeRecordingName();
     const score = calcScore(applyFilters(finalTrack));
 
-    const chosenName = await openSaveDialog(defaultName);
+    // 保存はここでは行わず、いったん保留（未保存）の状態で即座に再生できるようにする。
+    // 保存するかどうかはユーザーがSAVEボタンを押したときに決める。
+    pendingRecording = { blob, pitchTrack: finalTrack, duration, score, name: defaultName };
+    updateSaveBtnState();
+    statusHint.textContent = '録音完了 — 再生できます（保存するにはSAVE）';
+    selectRecording({ id: null, name: defaultName, blob, pitchTrack: finalTrack, duration, score });
+  }
 
-    if (chosenName === null) {
-      // キャンセル：保存せず破棄
-      statusHint.textContent = '録音を破棄しました';
-      return;
-    }
+  // ---------- SAVEボタン：保留中の録音をIndexedDBに保存 ----------
+  function updateSaveBtnState() {
+    saveBtn.disabled = !pendingRecording;
+  }
+
+  saveBtn.addEventListener('click', async () => {
+    if (!pendingRecording) return;
+    const rec = pendingRecording;
+    const chosenName = await openSaveDialog(rec.name);
+    if (chosenName === null) return; // キャンセル：保留のまま維持（破棄しない）
 
     try {
-      const newId = await dbAddRecording({ name: chosenName, blob, pitchTrack: finalTrack, duration, score, createdAt: Date.now() });
+      const newId = await dbAddRecording({ name: chosenName, blob: rec.blob, pitchTrack: rec.pitchTrack, duration: rec.duration, score: rec.score, createdAt: Date.now() });
       statusHint.textContent = '「' + chosenName + '」を保存しました';
-      selectRecording({ id: newId, name: chosenName, blob, pitchTrack: finalTrack, duration, score, createdAt: Date.now() });
+      pendingRecording = null;
+      updateSaveBtnState();
+      // 再生中の名前表示も保存後の名前に更新する
+      if (currentPlayback) {
+        currentPlayback.id = newId;
+        pbName.textContent = chosenName;
+      }
+      refreshRecList();
     } catch (err) {
       console.error(err);
       statusHint.textContent = '保存に失敗しました';
     }
-  }
+  });
 
   // ---------- 保存ダイアログ（Promiseで待ち受け。OK→名前、キャンセル→null） ----------
   function openSaveDialog(defaultName) {
@@ -1106,7 +1209,35 @@
     }
   });
 
-  clearBtn.addEventListener('click', () => {
+  function openClearConfirm() {
+    return new Promise((resolve) => {
+      clearConfirmBackdrop.classList.add('open');
+      clearConfirmPopup.classList.add('open');
+
+      function cleanup() {
+        clearConfirmBackdrop.classList.remove('open');
+        clearConfirmPopup.classList.remove('open');
+        clearConfirmOkBtn.removeEventListener('click', onOk);
+        clearConfirmCancelBtn.removeEventListener('click', onCancel);
+        clearConfirmBackdrop.removeEventListener('click', onCancel);
+      }
+      function onOk() { cleanup(); resolve(true); }
+      function onCancel() { cleanup(); resolve(false); }
+      clearConfirmOkBtn.addEventListener('click', onOk);
+      clearConfirmCancelBtn.addEventListener('click', onCancel);
+      clearConfirmBackdrop.addEventListener('click', onCancel);
+    });
+  }
+
+  clearBtn.addEventListener('click', async () => {
+    if (recording) return;
+    const confirmed = await openClearConfirm();
+    if (!confirmed) return;
+
+    stopPlayback();
+    pendingRecording = null;
+    updateSaveBtnState();
+
     pitchTrack = [];
     canvasWidth = PIXELS_PER_SEC * initialBufferSec;
     setupSize();
@@ -1116,6 +1247,7 @@
     centsReadout.textContent = '-- ¢';
     rollScroll.scrollLeft = 0;
     volumeScroll.scrollLeft = 0;
+    statusHint.textContent = 'マイク未接続 — RECを押して開始';
   });
 
   // ============================================================
@@ -1363,14 +1495,13 @@
   }
   function openKeyModal() {
     reflectKeySettingsToUI();
+    closeSettingsModal();
     keyBackdrop.classList.add('open');
     keyPopup.classList.add('open');
-    keyBtn.classList.add('active');
   }
   function closeKeyModal() {
     keyBackdrop.classList.remove('open');
     keyPopup.classList.remove('open');
-    keyBtn.classList.remove('active');
   }
   keyBtn.addEventListener('click', openKeyModal);
   keyCloseBtn.addEventListener('click', closeKeyModal);
@@ -1574,6 +1705,11 @@
 
   function selectRecording(rec) {
     if (recording) return;
+    // 保存済みの録音（idを持つ）に切り替える場合は、保留中の未保存録音を破棄する
+    if (rec.id) {
+      pendingRecording = null;
+      updateSaveBtnState();
+    }
     stopPlayback();
 
     const url = URL.createObjectURL(rec.blob);
@@ -1642,4 +1778,5 @@
   redraw();
   scrollToRange(INITIAL_FOCUS);
   refreshRecList();
+  updateSaveBtnState();
 })();

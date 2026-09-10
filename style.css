@@ -203,6 +203,8 @@ body {
 }
 .pitch-roll-key-label.sharp { color: #4a4a56; }
 .pitch-roll-key-label.is-c { color: var(--accent-primary); font-weight: 800; }
+.pitch-roll-key-label { cursor: pointer; touch-action: none; user-select: none; -webkit-user-select: none; transition: color 0.08s ease; }
+.pitch-roll-key-label.pressed { color: var(--accent-primary); font-weight: 800; background: rgba(236, 72, 153, 0.16); }
 
 .pitch-roll-scroll {
   flex: 1;
@@ -253,7 +255,7 @@ body {
 /* ---------- Volume panel (RMS音量ライン、ピッチロールの下に固定高さで表示) ---------- */
 .volume-panel {
   flex-shrink: 0;
-  height: 100px;
+  height: 84px;
   margin-top: 6px;
   border-radius: 12px;
   background: #16161b;
@@ -491,6 +493,26 @@ body {
   font-size: 11px;
   color: #6b6b7b;
   line-height: 1.4;
+}
+
+/* SET内の他画面（Key & Drone等）への遷移用の行 */
+.settings-row-link {
+  cursor: pointer;
+  margin: -4px -4px 10px;
+  padding: 8px 4px;
+  border-radius: 10px;
+  transition: background 0.12s ease;
+}
+.settings-row-link:hover,
+.settings-row-link:active {
+  background: rgba(255, 255, 255, 0.05);
+}
+.settings-row-link .settings-row-title { color: var(--accent-primary); }
+.settings-row-chevron {
+  flex-shrink: 0;
+  font-size: 20px;
+  color: var(--accent-primary);
+  line-height: 1;
 }
 
 .settings-field {
@@ -763,6 +785,19 @@ body {
   margin-top: 0;
 }
 
+/* ---------- クリア確認ダイアログ ---------- */
+.clear-confirm-desc {
+  font-family: var(--font-body, 'Instrument Sans'), sans-serif;
+  font-size: 12px;
+  color: #8b8b9e;
+  line-height: 1.5;
+  margin: 0 0 16px;
+}
+.clear-confirm-ok-btn.popup-close-btn {
+  background: linear-gradient(135deg, #ef4444, #dc2626);
+  box-shadow: 0 6px 20px rgba(239, 68, 68, 0.35);
+}
+
 /* ---------- Bottom fixed transport (mirrors QNAUDIO / QNTEMPO top-controls) ---------- */
 .top-controls-spacer { flex-shrink: 0; }
 
@@ -855,3 +890,18 @@ body {
   opacity: 0.7;
   line-height: 1;
 }
+
+/* 2段目：SAVE / CLEAR / TEMPO / SET。1段目より項目数が多いので個々のボタンをやや小さくし、
+   fill:1 1 0 で4等分に揃える（1段目のREC/PLAYはloopbtn-rec/loopbtn-playでflex:1のまま）。 */
+.top-controls-row-secondary .loopbtn-square {
+  flex: 1 1 0;
+  width: auto;
+  padding: 10px 0 9px;
+}
+.top-controls-row-secondary .loopbtn svg { width: 16px; height: 16px; }
+
+.loopbtn-square:disabled {
+  cursor: default;
+  opacity: 0.35;
+}
+.loopbtn-square:disabled:active { transform: none; }
