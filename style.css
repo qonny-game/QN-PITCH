@@ -424,8 +424,10 @@ body {
 .save-ok-btn { flex: 1; margin-top: 0; }
 
 /* ---------- Settings modal ---------- */
+/* 設定画面は上半分に効果範囲（ピッチロール/音量ライン）を見せたいので、
+   高さを画面の半分程度に抑える（背景は不透過） */
 .settings-popup {
-  max-height: 80vh;
+  max-height: 50vh;
   overflow-y: auto;
 }
 
@@ -679,16 +681,6 @@ body {
 .rec-list-popup.open {
   display: flex;
   flex-direction: column;
-}
-
-/* 設定画面は調整しながら後ろのピッチロール/音量ラインが見えるよう、
-   本体・バックドロップともに他のモーダルより透過度を高くする（ぼかしなし）。
-   .av-popupより後方に置くことで、不透明な背景色を確実に上書きする。 */
-.settings-popup {
-  background: rgba(22, 22, 27, 0.55);
-}
-#settingsBackdrop.open {
-  background: rgba(5, 5, 7, 0.15);
 }
 
 .av-popup-backdrop {
