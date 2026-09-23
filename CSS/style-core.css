@@ -1,0 +1,296 @@
+/* ============================================================
+   style-core.css
+   デザイントークン（色・フォント・角丸・文字サイズ・モーション）と、
+   ヘッダー共通部品（#appHeader / #appLogo / #appVersion）。
+   メディアクエリを含まない。
+
+   【重要】このファイルの:rootトークン・[data-qn-theme]テーマ色は、
+   QNPLAYER（QNP2_16_10/CSS/style-core.css）のものと完全に同一の値。
+   md/AI_ASSISTANT_PROJECT_CONTEXT.md §0-2・§8の通り、QNPITCH独自の
+   デザイントークンは作らない。値を変更する場合は、QNPLAYER側との
+   一貫性を崩さないか必ず確認すること。
+   ============================================================ */
+
+@import url('https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@400;500;600;700&display=swap');
+
+:root {
+  --accent-primary: #3b82f6;
+  --accent-secondary: #1d4ed8;
+  --accent-glow: rgba(59, 130, 246, 0.35);
+  --accent-hover-1: #2563eb;
+  --accent-hover-2: #1e40af;
+  --font-display: 'Instrument Sans';
+  --font-body: 'Instrument Sans';
+
+  /* アイコン・補助テキストの既定色（落ち着いたグレー）。 */
+  --icon-muted: #8b8b9e;
+
+  /* 白系のテキスト・強調色。 */
+  --text-bright: #f0f0f3;
+  --text-pure-white: #fff;
+
+  /* 白の半透明ボーダー・背景。 */
+  --border-subtle: rgba(255, 255, 255, 0.08);
+  --bg-hover-subtle: rgba(255, 255, 255, 0.06);
+
+  /* 削除・警告用の赤。テーマに関わらず独立。 */
+  --danger: #ef4444;
+
+  /* TUNERMODEの音程判定色（旧QNTUNERから移植）。ピッチが低い/高い/
+     合っている状態を示す配色。テーマカラーとは独立させ、常に同じ
+     意味の色で表示する。 */
+  --note-flat: #60a5fa;
+  --note-in: #10b981;
+  --note-in-glow: rgba(16, 185, 129, 0.35);
+  --note-sharp: #f59e0b;
+
+  /* PITCHMODEのズレ判定色（旧QNPITCHから移植）。ピッチロール上の点や
+     セント表示の良否を示す配色。 */
+  --good: #4ade80;
+  --warn: #facc15;
+  --bad: #f87171;
+
+  /* ============================================================
+     UIの統一ルール（角丸・文字サイズ・ボタン）。QNPLAYERと共通。
+     下部コントロールバー・アイコンバーのラベル・ロゴ/スプラッシュ・
+     メインウインドウ上のラベル等は意図的に例外扱い。それ以外
+     （パネル内・ポップアップ・ボタン・入力欄）は必ずこのトークンを
+     使い、個別のpx値を直書きしない。
+     ============================================================ */
+  --radius-pill: 999px;
+  --radius-round: 50%;
+  --radius-field: 10px;
+  --radius-popup: 14px;
+  --radius-modal: 20px;
+
+  --fs-title: 20px;
+  --fs-heading: 15px;
+  --fs-body: 14px;
+  --fs-small: 12px;
+  --fs-micro: 11px;
+  --fs-btn: 12px;
+  --fs-btn-primary: 14px;
+
+  --btn-h: 30px;
+  --btn-pad-x: 14px;
+  --border-strong: rgba(255, 255, 255, 0.14);
+
+  /* モーション設計トークン。4種のイージングを動作の意味ごとに使い分ける。 */
+  --ease-snap: cubic-bezier(0.2, 0, 0, 1);
+  --ease-glide: cubic-bezier(0.4, 0, 0.2, 1);
+  --ease-pop: cubic-bezier(0.34, 1.56, 0.64, 1);
+  --ease-dismiss: cubic-bezier(0.4, 0, 1, 1);
+
+  --dur-hover: 130ms;
+  --dur-press: 100ms;
+  --dur-open: 240ms;
+  --dur-modal: 300ms;
+  --dur-dismiss: 200ms;
+}
+
+/* ピンチズーム（拡大縮小ジェスチャー）を無効化する。 */
+html {
+  touch-action: pan-x pan-y;
+}
+
+[data-qn-theme="blue"] {
+  --accent-primary: #3b82f6;
+  --accent-secondary: #1d4ed8;
+  --accent-glow: rgba(59, 130, 246, 0.35);
+  --accent-hover-1: #2563eb;
+  --accent-hover-2: #1e40af;
+}
+
+[data-qn-theme="emerald"] {
+  --accent-primary: #10b981;
+  --accent-secondary: #047857;
+  --accent-glow: rgba(16, 185, 129, 0.35);
+  --accent-hover-1: #059669;
+  --accent-hover-2: #065f46;
+}
+
+[data-qn-theme="purple"] {
+  --accent-primary: #8b5cf6;
+  --accent-secondary: #6d28d9;
+  --accent-glow: rgba(139, 92, 246, 0.35);
+  --accent-hover-1: #7c3aed;
+  --accent-hover-2: #5b21b6;
+}
+
+[data-qn-theme="rose"] {
+  --accent-primary: #f43f5e;
+  --accent-secondary: #be123c;
+  --accent-glow: rgba(244, 63, 94, 0.35);
+  --accent-hover-1: #e11d48;
+  --accent-hover-2: #9f1239;
+}
+
+[data-qn-theme="amber"] {
+  --accent-primary: #f59e0b;
+  --accent-secondary: #b45309;
+  --accent-glow: rgba(245, 158, 11, 0.35);
+  --accent-hover-1: #d97706;
+  --accent-hover-2: #92400e;
+}
+
+[data-qn-theme="cyan"] {
+  --accent-primary: #06b6d4;
+  --accent-secondary: #0e7490;
+  --accent-glow: rgba(6, 182, 212, 0.35);
+  --accent-hover-1: #0891b2;
+  --accent-hover-2: #155e75;
+}
+
+[data-qn-theme="indigo"] {
+  --accent-primary: #6366f1;
+  --accent-secondary: #4338ca;
+  --accent-glow: rgba(99, 102, 241, 0.35);
+  --accent-hover-1: #4f46e5;
+  --accent-hover-2: #3730a3;
+}
+
+[data-qn-theme="pink"] {
+  --accent-primary: #ec4899;
+  --accent-secondary: #be185d;
+  --accent-glow: rgba(236, 72, 153, 0.35);
+  --accent-hover-1: #db2777;
+  --accent-hover-2: #9d174d;
+}
+
+[data-qn-theme="lime"] {
+  --accent-primary: #84cc16;
+  --accent-secondary: #4d7c0f;
+  --accent-glow: rgba(132, 204, 22, 0.35);
+  --accent-hover-1: #65a30d;
+  --accent-hover-2: #3f6212;
+}
+
+[data-qn-theme="orange"] {
+  --accent-primary: #f97316;
+  --accent-secondary: #c2410c;
+  --accent-glow: rgba(249, 115, 22, 0.35);
+  --accent-hover-1: #ea580c;
+  --accent-hover-2: #9a3412;
+}
+
+[data-qn-theme="teal"] {
+  --accent-primary: #14b8a6;
+  --accent-secondary: #0f766e;
+  --accent-glow: rgba(20, 184, 166, 0.35);
+  --accent-hover-1: #0d9488;
+  --accent-hover-2: #115e59;
+}
+
+[data-qn-theme="violet"] {
+  --accent-primary: #a855f7;
+  --accent-secondary: #7e22ce;
+  --accent-glow: rgba(168, 85, 247, 0.35);
+  --accent-hover-1: #9333ea;
+  --accent-hover-2: #6b21a8;
+}
+
+[data-qn-theme="red"] {
+  --accent-primary: #ef4444;
+  --accent-secondary: #b91c1c;
+  --accent-glow: rgba(239, 68, 68, 0.35);
+  --accent-hover-1: #dc2626;
+  --accent-hover-2: #991b1b;
+}
+
+[data-qn-theme="sky"] {
+  --accent-primary: #0ea5e9;
+  --accent-secondary: #0369a1;
+  --accent-glow: rgba(14, 165, 233, 0.35);
+  --accent-hover-1: #0284c7;
+  --accent-hover-2: #075985;
+}
+
+body {
+  background:
+    radial-gradient(circle at 15% 0%, color-mix(in srgb, var(--accent-primary) 12%, transparent), transparent 45%),
+    radial-gradient(circle at 100% 15%, color-mix(in srgb, var(--accent-secondary) 10%, transparent), transparent 40%),
+    #0d0d0f;
+  color: var(--text-bright);
+  font-family: var(--font-body, 'Instrument Sans'), -apple-system, BlinkMacSystemFont, sans-serif;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+}
+
+#appHeader {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  position: relative;
+  z-index: 200;
+}
+
+#appLogo {
+  font-family: var(--font-display, 'Instrument Sans'), sans-serif;
+  font-size: 32px;
+  font-weight: 700;
+  letter-spacing: 1px;
+  margin: 0;
+  color: var(--text-bright);
+  text-transform: uppercase;
+}
+
+#appLogoQN {
+  background: linear-gradient(135deg, var(--accent-primary), var(--accent-secondary));
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  color: transparent;
+}
+
+#appVersion {
+  font-size: 12px;
+  font-weight: 500;
+  letter-spacing: 0.5px;
+  color: #6b6b7b;
+  text-transform: none;
+  vertical-align: middle;
+}
+
+/* ============================================================
+   ヘッダー右：TUNER/PITCH MODE切り替えボタン（QNPITCH固有）。
+   QNPLAYERには存在しない要素。§0-2参照：将来「PLAYER/TUNER/PITCH」の
+   3モード切替に拡張されうる前提で、シンプルな構造にしてある。
+   ============================================================ */
+#pitchModeToggle {
+  display: flex;
+  align-items: center;
+  margin-left: auto;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-pill);
+  padding: 3px;
+  gap: 2px;
+}
+
+.pitch-mode-btn {
+  appearance: none;
+  border: none;
+  background: none;
+  color: var(--icon-muted);
+  font-family: var(--font-display, 'Instrument Sans'), sans-serif;
+  font-size: var(--fs-btn);
+  font-weight: 700;
+  letter-spacing: 0.4px;
+  padding: 7px 16px;
+  border-radius: var(--radius-pill);
+  cursor: pointer;
+  transition: color var(--dur-hover) var(--ease-snap), background var(--dur-hover) var(--ease-snap);
+}
+
+.pitch-mode-btn:hover {
+  color: var(--text-bright);
+}
+
+.pitch-mode-btn.active {
+  color: var(--text-pure-white);
+  background: linear-gradient(135deg, var(--accent-primary), var(--accent-secondary));
+}

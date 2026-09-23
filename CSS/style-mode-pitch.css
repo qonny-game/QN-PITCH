@@ -1,0 +1,418 @@
+/* ============================================================
+   style-mode-pitch.css
+   PITCHMODEのメインウインドウ（ピッチロール・音量パネル）と下部バー。
+   旧QNPITCH(style.css)から、SP専用モーダル配置等を除いてPC v2の
+   #pcV2WaveArea/#pcV2BottomBar配下向けに移植。
+   ============================================================ */
+
+#pitchStage {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.pitch-stage-meta {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 10px;
+  flex-shrink: 0;
+}
+
+.pitch-stage-meta-label {
+  font-family: var(--font-display, 'Instrument Sans'), sans-serif;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  color: #55555f;
+}
+
+.pitch-stage-meta-value {
+  font-family: var(--font-display, 'Instrument Sans'), sans-serif;
+  font-size: 22px;
+  font-weight: 800;
+  color: var(--text-bright);
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+  min-width: 52px;
+}
+
+.pitch-cents-readout {
+  font-family: var(--font-display, 'Instrument Sans'), sans-serif;
+  font-size: 13px;
+  font-weight: 700;
+  color: #55555f;
+  font-variant-numeric: tabular-nums;
+}
+.pitch-cents-readout.good { color: var(--good); }
+.pitch-cents-readout.warn { color: var(--warn); }
+.pitch-cents-readout.bad { color: var(--bad); }
+
+/* --- ピッチロールパネル --- */
+.pitch-roll-panel {
+  flex: 1;
+  min-height: 0;
+  border-radius: 16px;
+  background: #16161b;
+  border: 1px solid var(--border-subtle);
+  overflow: hidden;
+  display: flex;
+}
+
+.pitch-roll-keys {
+  flex-shrink: 0;
+  width: 44px;
+  overflow-y: hidden;
+  overflow-x: hidden;
+  border-right: 1px solid var(--border-subtle);
+  background: #18181f;
+  position: relative;
+}
+
+.pitch-roll-key-label {
+  position: absolute;
+  left: 0;
+  right: 0;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  padding-right: 8px;
+  font-family: var(--font-display, 'Instrument Sans'), sans-serif;
+  font-size: 10px;
+  font-weight: 600;
+  color: #c8c8d0;
+  box-sizing: border-box;
+  cursor: pointer;
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+  transition: color 0.08s ease;
+}
+.pitch-roll-key-label.sharp { color: #4a4a56; }
+.pitch-roll-key-label.is-c { color: var(--accent-primary); font-weight: 800; }
+
+.pitch-roll-scroll {
+  flex: 1;
+  min-width: 0;
+  overflow-x: auto;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  touch-action: pan-x pan-y;
+}
+
+.pitch-roll-content {
+  position: relative;
+  display: inline-block;
+}
+
+.pitch-roll-scroll canvas {
+  display: block;
+}
+
+.pitch-playback-cursor {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 2px;
+  background: var(--text-pure-white);
+  box-shadow: 0 0 8px rgba(255, 255, 255, 0.8);
+  pointer-events: none;
+  display: none;
+}
+.pitch-playback-cursor.active { display: block; }
+
+.pitch-stage-hint {
+  text-align: center;
+  font-family: var(--font-body, 'Instrument Sans'), sans-serif;
+  font-size: 11px;
+  color: #55555f;
+  margin-top: 8px;
+  margin-bottom: 0;
+  letter-spacing: 0.1px;
+  flex-shrink: 0;
+}
+.pitch-stage-hint.live { color: var(--good); }
+
+/* --- 音量パネル --- */
+.pitch-volume-panel {
+  flex-shrink: 0;
+  height: 72px;
+  margin-top: 6px;
+  border-radius: 12px;
+  background: #16161b;
+  border: 1px solid var(--border-subtle);
+  overflow: hidden;
+  display: flex;
+}
+
+.pitch-volume-panel-label {
+  flex-shrink: 0;
+  width: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-right: 1px solid var(--border-subtle);
+  background: #18181f;
+  font-family: var(--font-display, 'Instrument Sans'), sans-serif;
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 1px;
+  color: #55555f;
+}
+
+.pitch-volume-scroll {
+  flex: 1;
+  min-width: 0;
+  overflow-x: auto;
+  overflow-y: hidden;
+  -webkit-overflow-scrolling: touch;
+  touch-action: pan-x;
+}
+
+.pitch-volume-scroll canvas {
+  display: block;
+}
+
+/* --- 下部バー：REC/PLAY/再生情報（#pcV2BottomBar内） --- */
+.pitch-pb-info-row {
+  display: none;
+  align-items: center;
+  gap: 10px;
+  flex: 1;
+  min-width: 0;
+}
+.pitch-pb-info-row.open { display: flex; }
+
+.pitch-pb-name {
+  flex-shrink: 0;
+  max-width: 40%;
+  font-family: var(--font-display, 'Instrument Sans'), sans-serif;
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--text-bright);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.pitch-pb-score {
+  flex-shrink: 0;
+  font-family: var(--font-display, 'Instrument Sans'), sans-serif;
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--accent-primary);
+  white-space: nowrap;
+}
+.pitch-pb-progress-track {
+  flex: 1;
+  min-width: 0;
+  height: 4px;
+  border-radius: 2px;
+  background: rgba(255, 255, 255, 0.08);
+  overflow: hidden;
+}
+.pitch-pb-progress-fill {
+  height: 100%;
+  width: 0%;
+  background: var(--accent-primary);
+  border-radius: 2px;
+}
+.pitch-pb-close-btn {
+  flex-shrink: 0;
+  width: 22px;
+  height: 22px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 6px;
+  background: transparent;
+  border: none;
+  color: #55555f;
+  cursor: pointer;
+}
+.pitch-pb-close-btn svg { width: 12px; height: 12px; fill: currentColor; }
+
+#pitchRecBtn.recording {
+  color: var(--danger);
+}
+
+/* --- 録音一覧（アイコンバー→パネル） --- */
+.pitch-rec-list-scroll {
+  padding: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.pitch-rec-list-empty {
+  text-align: center;
+  padding: 20px 0;
+  color: #55555f;
+  font-family: var(--font-body, 'Instrument Sans'), sans-serif;
+  font-size: 13px;
+  margin: 0;
+}
+
+.pitch-rec-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 12px 12px 14px;
+  border-radius: 12px;
+  background: #1c1c24;
+  border: 1px solid var(--border-subtle);
+  cursor: pointer;
+  transition: background var(--dur-hover) var(--ease-snap), border-color var(--dur-hover) var(--ease-snap);
+}
+.pitch-rec-row.playing {
+  border-color: var(--accent-primary);
+  background: var(--accent-glow);
+}
+.pitch-rec-row-icon {
+  flex-shrink: 0;
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.06);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--accent-primary);
+}
+.pitch-rec-row-icon svg { width: 14px; height: 14px; fill: currentColor; }
+.pitch-rec-row-info {
+  flex: 1;
+  min-width: 0;
+}
+.pitch-rec-row-name {
+  font-family: var(--font-display, 'Instrument Sans'), sans-serif;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text-bright);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.pitch-rec-row-meta {
+  font-family: var(--font-body, 'Instrument Sans'), sans-serif;
+  font-size: 10px;
+  color: #6b6b7b;
+  margin-top: 2px;
+}
+.pitch-rec-row-edit,
+.pitch-rec-row-delete {
+  flex-shrink: 0;
+  width: 28px;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 8px;
+  background: transparent;
+  border: none;
+  color: #55555f;
+  cursor: pointer;
+  font-size: 16px;
+}
+.pitch-rec-row-edit svg { width: 14px; height: 14px; fill: currentColor; }
+.pitch-rec-row-edit:active { background: var(--accent-glow); color: var(--accent-primary); }
+.pitch-rec-row-delete:active { background: rgba(239, 68, 68, 0.15); color: var(--danger); }
+
+/* --- 保存/リネームダイアログ（PC v2構造に合わせ、中央配置のオーバーレイ） --- */
+.pitch-dialog-backdrop {
+  display: none;
+  position: fixed;
+  inset: 0;
+  z-index: 500;
+  background: rgba(5, 5, 7, 0);
+  align-items: center;
+  justify-content: center;
+  transition: background var(--dur-open) var(--ease-dismiss);
+}
+.pitch-dialog-backdrop.open {
+  display: flex;
+  background: rgba(5, 5, 7, 0.6);
+  transition: background var(--dur-open) var(--ease-pop);
+}
+
+.pitch-dialog {
+  width: 320px;
+  max-width: calc(100vw - 40px);
+  background: #16161b;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-modal);
+  padding: 20px;
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.5);
+  opacity: 0;
+  transform: translateY(12px) scale(0.98);
+  transition: opacity var(--dur-open) var(--ease-dismiss), transform var(--dur-open) var(--ease-dismiss);
+}
+.pitch-dialog-backdrop.open .pitch-dialog {
+  opacity: 1;
+  transform: translateY(0) scale(1);
+  transition: opacity var(--dur-open) var(--ease-pop), transform var(--dur-open) var(--ease-pop);
+}
+
+.pitch-popup-title {
+  font-family: var(--font-display, 'Instrument Sans'), sans-serif;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  color: #6b6b7b;
+  margin: 0 0 14px;
+}
+
+.pitch-name-input {
+  width: 100%;
+  padding: 12px 14px;
+  border-radius: var(--radius-field);
+  background: #1c1c24;
+  border: 1px solid var(--border-strong);
+  color: var(--text-bright);
+  font-family: var(--font-body, 'Instrument Sans'), sans-serif;
+  font-size: 14px;
+  box-sizing: border-box;
+}
+.pitch-name-input:focus { outline: none; border-color: var(--accent-primary); }
+
+.pitch-dialog-btn-row {
+  display: flex;
+  gap: 8px;
+  margin-top: 14px;
+}
+.pitch-dialog-btn {
+  flex: 1;
+  padding: 14px;
+  border-radius: var(--radius-field);
+  background: #1c1c24;
+  border: 1px solid var(--border-subtle);
+  color: #c8c8d0;
+  font-family: var(--font-display, 'Instrument Sans'), sans-serif;
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+  cursor: pointer;
+  box-sizing: border-box;
+}
+.pitch-dialog-btn:active { transform: scale(0.97); }
+.pitch-dialog-btn.pitch-dialog-btn-primary {
+  background: var(--accent-primary);
+  border-color: var(--accent-primary);
+  color: var(--text-pure-white);
+}
+.pitch-dialog-btn.pitch-dialog-btn-danger:active {
+  background: rgba(239, 68, 68, 0.1);
+  color: var(--danger);
+}
+
+/* --- クリア確認ダイアログ --- */
+.pitch-clear-confirm-desc {
+  font-family: var(--font-body, 'Instrument Sans'), sans-serif;
+  font-size: 13px;
+  color: var(--icon-muted);
+  line-height: 1.5;
+  margin: 0 0 4px;
+}

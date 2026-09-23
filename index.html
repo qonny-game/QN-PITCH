@@ -3,10 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-<title>QN PITCH 0.2.4</title>
-<script>
-  window.QN_CURRENT_APP = "pitch";
-</script>
+<title>QNPITCH</title>
 <link rel="icon" type="image/x-icon" href="favicon/favicon.ico">
 <link rel="icon" type="image/png" sizes="16x16" href="favicon/favicon-16x16.png">
 <link rel="icon" type="image/png" sizes="32x32" href="favicon/favicon-32x32.png">
@@ -14,339 +11,127 @@
 <link rel="icon" type="image/png" sizes="192x192" href="favicon/android-chrome-192x192.png">
 <link rel="icon" type="image/png" sizes="512x512" href="favicon/android-chrome-512x512.png">
 
-<link rel="stylesheet" href="style.css">
+<link rel="stylesheet" href="CSS/style-core.css">
+<link rel="stylesheet" href="CSS/style-layout-pc-v2.css">
+<link rel="stylesheet" href="CSS/style-mode-tuner.css">
+<link rel="stylesheet" href="CSS/style-mode-pitch.css">
+<link rel="stylesheet" href="CSS/style-filters.css">
+<link rel="stylesheet" href="CSS/style-recordings.css">
+<link rel="stylesheet" href="CSS/style-auth.css">
+<link rel="stylesheet" href="CSS/style-theme.css">
+<!-- style-metronome.css：内蔵メトロノームは実装後回し（md/AI_ASSISTANT_PROJECT_CONTEXT.md §0-4）。
+     ファイルの雛形はJS/CSSフォルダに用意済みだが、着手時にここへlinkタグを追加する。 -->
+
+<script>
+  // アプリバージョンの一元管理（QNPLAYERと同じ方式）。
+  window.QN_APP_VERSION = "1.0.0";
+  document.title = "QNPITCH " + window.QN_APP_VERSION;
+
+  window.QN_CURRENT_APP = "qnpitch";
+  // キーボードショートカットは実装後回し。定義したくなったらここに追加する。
+  // window.QN_SHORTCUTS = [ ... ];
+</script>
 </head>
 <body>
 
+<!-- 起動時スプラッシュ -->
+<div id="splashOverlay">
+  <div id="splashLogo"><span id="splashLogoQN">QN</span>PITCH</div>
+  <div id="splashVersion">v</div>
+</div>
+<script>
+  document.getElementById("splashVersion").textContent = "v" + window.QN_APP_VERSION;
+</script>
+<script>
+  setTimeout(() => {
+    const splash = document.getElementById("splashOverlay");
+    if (splash && splash.style.display !== "none") {
+      splash.classList.add("splash-fade-out");
+      setTimeout(() => { splash.style.display = "none"; }, 550);
+    }
+  }, 5000);
+</script>
+
 <div id="appHeader">
+  <!-- カラーテーマ切替・ショートカット一覧のハンバーガーメニュー用マウント先。
+       中身はpitch-theme.js実装時にQNPLAYERのplayer-theme.js方式を踏襲して構築する。 -->
   <div id="qnMenuMount"></div>
-  <div id="appHeaderText">
-    <h1 id="appLogo"><span id="appLogoQN">QN</span>PITCH <span id="appVersion">v0.2.4</span></h1>
-  </div>
-</div>
 
-<!-- 録音一覧モーダル（LISTボタンで開閉、画面に重ねて表示） -->
-<div class="av-popup-backdrop" id="recListBackdrop"></div>
-<div class="av-popup rec-list-popup" id="recListPopup">
-  <p class="popup-title">Recordings</p>
-  <div class="rec-list-scroll" id="recListScroll">
-    <p class="rec-list-empty" id="recListEmpty">まだ録音がありません</p>
-  </div>
-  <button class="popup-close-btn" id="recListCloseBtn">Done</button>
-</div>
+  <h1 id="appLogo"><span id="appLogoQN">QN</span>PITCH <span id="appVersion">v</span></h1>
+  <script>
+    document.getElementById("appVersion").textContent = "v" + window.QN_APP_VERSION;
+  </script>
 
-<!-- ノイズ除去フィルタ設定モーダル（SETボタンで開閉） -->
-<div class="av-popup-backdrop" id="settingsBackdrop"></div>
-<div class="av-popup settings-popup" id="settingsPopup">
-  <p class="popup-title">Filter Settings</p>
-
-  <div class="settings-row settings-row-link" id="openKeyFromSettingsBtn" role="button" tabindex="0">
-    <div class="settings-row-label">
-      <span class="settings-row-title">Key &amp; Drone</span>
-      <span class="settings-row-desc">キー表示・スケールハイライト・基準ピッチ再生の設定を開く</span>
-    </div>
-    <span class="settings-row-chevron">›</span>
+  <!-- ヘッダー右：TUNER/PITCH MODE切り替えボタン（QNPITCH固有、QNPLAYERには存在しない）。
+       md/AI_ASSISTANT_PROJECT_CONTEXT.md §0-2参照：将来「PLAYER/TUNER/PITCH」の
+       3モード切替に拡張されうる前提の実装にしてある。 -->
+  <div id="pitchModeToggle">
+    <button type="button" class="pitch-mode-btn active" data-mode="tuner">TUNER</button>
+    <button type="button" class="pitch-mode-btn" data-mode="pitch">PITCH</button>
   </div>
 
-  <div class="settings-divider"></div>
+  <!-- Firebase Authentication（Googleログイン）UI。
+       pitch-auth.js（player-auth.jsを移植、Firebaseプロジェクトは
+       QNPLAYERと同一）が制御する。DOM構造・ID命名はQNPLAYERと共通
+       （§0-2：ログイン・FREE/PREMIUM判定はQNPLAYERと共通化する方針）。 -->
+  <div id="authContainer">
+    <button id="btnLoginGoogle" title="Googleでログイン">
+      <svg viewBox="0 0 24 24"><path fill="#fff" d="M21.35 11.1h-9.17v2.73h6.51c-.33 3.81-3.5 5.44-6.5 5.44C8.36 19.27 5 16.25 5 12c0-4.1 3.2-7.27 7.2-7.27 3.09 0 4.9 1.97 4.9 1.97L19 4.72S16.56 2 12.1 2C6.42 2 2.03 6.8 2.03 12c0 5.05 4.13 10 10.22 10 5.35 0 9.25-3.67 9.25-9.09 0-1.15-.15-1.81-.15-1.81z"/></svg>
+      <span>Googleでログイン</span>
+    </button>
 
-  <div class="settings-row">
-    <div class="settings-row-label">
-      <span class="settings-row-title">急変スキップ</span>
-      <span class="settings-row-desc">直近の短時間で大きく音程が動いた区間の線を描画しない</span>
-    </div>
-  </div>
-  <div class="settings-field">
-    <label class="settings-field-label" for="jumpWindowInput">時間窓 <span class="settings-field-value" id="jumpWindowValue">150</span> ms</label>
-    <input type="range" id="jumpWindowInput" class="settings-slider" min="0" max="500" step="10">
-  </div>
-  <div class="settings-field">
-    <label class="settings-field-label" for="jumpSemitonesInput">音程変化量 <span class="settings-field-value" id="jumpSemitonesValue">2</span> 半音</label>
-    <input type="range" id="jumpSemitonesInput" class="settings-slider" min="0" max="12" step="1">
-  </div>
+    <div id="userInfo" style="display:none;">
+      <button id="userAvatarBtn" title="アカウントメニュー">
+        <img id="userPhoto" src="" alt="User Photo">
+      </button>
 
-  <div class="settings-divider"></div>
-
-  <div class="settings-row">
-    <div class="settings-row-label">
-      <span class="settings-row-title">スパイク除去</span>
-      <span class="settings-row-desc">前後と繋がらない孤立した単発の飛び値を除去する</span>
-    </div>
-    <button type="button" class="settings-toggle" id="spikeToggle" role="switch" aria-checked="true"><span class="settings-toggle-knob"></span></button>
-  </div>
-
-  <div class="settings-divider"></div>
-
-  <div class="settings-row">
-    <div class="settings-row-label">
-      <span class="settings-row-title">音量ゲート</span>
-      <span class="settings-row-desc">これより小さい音量で検出されたピッチは無効点として扱う</span>
-    </div>
-  </div>
-  <div class="settings-field">
-    <label class="settings-field-label" for="rmsThresholdInput">最低音量 <span class="settings-field-value" id="rmsThresholdValue">0.00</span> (RMS)</label>
-    <input type="range" id="rmsThresholdInput" class="settings-slider" min="0" max="0.5" step="0.01">
-  </div>
-
-  <div class="settings-divider"></div>
-
-  <div class="settings-row">
-    <div class="settings-row-label">
-      <span class="settings-row-title">音程ズレハイライト</span>
-      <span class="settings-row-desc">同じ音を一定期間以上保持している区間で、平均セントのズレが大きい場合に背景を赤くする</span>
-    </div>
-    <button type="button" class="settings-toggle" id="pitchDriftToggle" role="switch" aria-checked="false"><span class="settings-toggle-knob"></span></button>
-  </div>
-  <div class="settings-field">
-    <label class="settings-field-label" for="pitchDriftDurationInput">最低保持期間 <span class="settings-field-value" id="pitchDriftDurationValue">400</span> ms</label>
-    <input type="range" id="pitchDriftDurationInput" class="settings-slider" min="100" max="2000" step="50">
-  </div>
-  <div class="settings-field">
-    <label class="settings-field-label" for="pitchDriftCentsInput">平均ズレ閾値 <span class="settings-field-value" id="pitchDriftCentsValue">20</span> ¢</label>
-    <input type="range" id="pitchDriftCentsInput" class="settings-slider" min="1" max="50" step="1">
-  </div>
-
-  <div class="settings-divider"></div>
-
-  <div class="settings-row">
-    <div class="settings-row-label">
-      <span class="settings-row-title">ビブラート検出</span>
-      <span class="settings-row-desc">規則的に音程が揺れている区間を意図的なビブラートとみなし、ズレハイライトの対象から除外して紫色で表示する</span>
-    </div>
-    <button type="button" class="settings-toggle" id="vibratoToggle" role="switch" aria-checked="true"><span class="settings-toggle-knob"></span></button>
-  </div>
-  <div class="settings-field">
-    <label class="settings-field-label" for="vibratoMinRateInput">揺れ周期（下限） <span class="settings-field-value" id="vibratoMinRateValue">3.0</span> Hz</label>
-    <input type="range" id="vibratoMinRateInput" class="settings-slider" min="1" max="10" step="0.5">
-  </div>
-  <div class="settings-field">
-    <label class="settings-field-label" for="vibratoMaxRateInput">揺れ周期（上限） <span class="settings-field-value" id="vibratoMaxRateValue">8.0</span> Hz</label>
-    <input type="range" id="vibratoMaxRateInput" class="settings-slider" min="1" max="12" step="0.5">
-  </div>
-  <div class="settings-field">
-    <label class="settings-field-label" for="vibratoMinCentsInput">最低揺れ幅 <span class="settings-field-value" id="vibratoMinCentsValue">15</span> ¢</label>
-    <input type="range" id="vibratoMinCentsInput" class="settings-slider" min="5" max="50" step="1">
-  </div>
-
-  <div class="settings-divider"></div>
-
-  <div class="settings-row">
-    <div class="settings-row-label">
-      <span class="settings-row-title">スコア判定</span>
-      <span class="settings-row-desc">維持区間の平均ズレがこの範囲以内なら「適正」として録音のスコア(%)に加算する</span>
-    </div>
-  </div>
-  <div class="settings-field">
-    <label class="settings-field-label" for="scoreCentsInput">許容ズレ閾値 <span class="settings-field-value" id="scoreCentsValue">25</span> ¢</label>
-    <input type="range" id="scoreCentsInput" class="settings-slider" min="1" max="50" step="1">
-  </div>
-
-  <div class="settings-btn-row">
-    <button class="save-cancel-btn" id="settingsResetBtn">Reset</button>
-    <button class="save-cancel-btn" id="settingsCancelBtn">Cancel</button>
-    <button class="popup-close-btn save-ok-btn" id="settingsCloseBtn">Done</button>
-  </div>
-</div>
-
-<!-- キー・スケール設定＆基準ピッチ(ドローン)モーダル（KEYボタンで開閉） -->
-<div class="av-popup-backdrop" id="keyBackdrop"></div>
-<div class="av-popup key-popup" id="keyPopup">
-  <p class="popup-title">Key & Drone</p>
-
-  <div class="settings-row">
-    <div class="settings-row-label">
-      <span class="settings-row-title">キー表示</span>
-      <span class="settings-row-desc">選んだキーのスケール構成音の背景をロール上でハイライトする</span>
-    </div>
-    <button type="button" class="settings-toggle" id="keyHighlightToggle" role="switch" aria-checked="false"><span class="settings-toggle-knob"></span></button>
-  </div>
-
-  <div class="key-select-row">
-    <select id="keyRootSelect" class="key-select">
-      <option value="0">C</option>
-      <option value="1">C#</option>
-      <option value="2">D</option>
-      <option value="3">D#</option>
-      <option value="4">E</option>
-      <option value="5">F</option>
-      <option value="6">F#</option>
-      <option value="7">G</option>
-      <option value="8">G#</option>
-      <option value="9">A</option>
-      <option value="10">A#</option>
-      <option value="11">B</option>
-    </select>
-    <select id="keyModeSelect" class="key-select">
-      <option value="major">Major</option>
-      <option value="minor">Minor</option>
-    </select>
-  </div>
-
-  <div class="settings-divider"></div>
-
-  <div class="settings-row">
-    <div class="settings-row-label">
-      <span class="settings-row-title">基準ピッチ再生</span>
-      <span class="settings-row-desc">選んだキーのルート音をサイン波で鳴らし続ける</span>
-    </div>
-    <button type="button" class="settings-toggle" id="droneToggle" role="switch" aria-checked="false"><span class="settings-toggle-knob"></span></button>
-  </div>
-
-  <div class="settings-field">
-    <label class="settings-field-label" for="droneOctaveInput">オクターブ <span class="settings-field-value" id="droneOctaveValue">3</span></label>
-    <input type="range" id="droneOctaveInput" class="settings-slider" min="1" max="6" step="1">
-  </div>
-
-  <div class="settings-btn-row">
-    <button class="popup-close-btn save-ok-btn" id="keyCloseBtn">Done</button>
-  </div>
-</div>
-
-<!-- 簡易メトロノームモーダル（TEMPOボタンで開閉） -->
-<div class="av-popup-backdrop" id="tempoBackdrop"></div>
-<div class="av-popup tempo-popup" id="tempoPopup">
-  <p class="popup-title">Metronome</p>
-
-  <div class="settings-row">
-    <div class="settings-row-label">
-      <span class="settings-row-title">メトロノーム</span>
-      <span class="settings-row-desc">クリック音を鳴らしながら、ロールに小節線を表示する</span>
-    </div>
-    <button type="button" class="settings-toggle" id="metronomeToggle" role="switch" aria-checked="false"><span class="settings-toggle-knob"></span></button>
-  </div>
-
-  <div class="key-select-row">
-    <select id="tempoBeatsSelect" class="key-select">
-      <option value="2">2/4</option>
-      <option value="3">3/4</option>
-      <option value="4">4/4</option>
-      <option value="5">5/4</option>
-      <option value="6">6/8</option>
-    </select>
-  </div>
-
-  <div class="settings-field">
-    <label class="settings-field-label" for="tempoBpmInput">BPM <span class="settings-field-value" id="tempoBpmValue">120</span></label>
-    <input type="range" id="tempoBpmInput" class="settings-slider" min="40" max="240" step="1">
-  </div>
-  <div class="settings-field">
-    <label class="settings-field-label" for="tempoVolumeInput">クリック音量 <span class="settings-field-value" id="tempoVolumeValue">0.6</span></label>
-    <input type="range" id="tempoVolumeInput" class="settings-slider" min="0" max="1" step="0.05">
-  </div>
-
-  <div class="settings-btn-row">
-    <button class="popup-close-btn save-ok-btn" id="tempoCloseBtn">Done</button>
-  </div>
-</div>
-
-<div class="stage-wrap">
-  <div class="stage-meta">
-    <span class="stage-meta-label">NOTE</span>
-    <span class="stage-meta-value" id="noteReadout">--</span>
-
-    <span class="cents-readout" id="centsReadout">-- ¢</span>
-  </div>
-
-  <div class="pitch-roll-panel">
-    <div class="pitch-roll-keys" id="rollKeys"></div>
-    <div class="pitch-roll-scroll" id="rollScroll">
-      <div class="pitch-roll-content" id="rollContent">
-        <canvas id="rollCanvas"></canvas>
+      <div id="userDropdown" class="user-dropdown">
+        <div class="user-dropdown-header">
+          <span id="userName">User Name</span>
+        </div>
+        <div class="user-dropdown-body">
+          <div class="user-dropdown-item">
+            <span class="user-dropdown-label">プラン</span>
+            <span id="userPlanBadge" class="sw-header-plan-badge">FREE</span>
+          </div>
+          <div class="user-dropdown-item" id="userPlanRemainingRow" style="display:none;">
+            <span class="user-dropdown-label">残り</span>
+            <span id="userPlanRemaining" class="user-dropdown-val"></span>
+          </div>
+          <div class="user-dropdown-item" id="userPlanEndDateRow" style="display:none;">
+            <span class="user-dropdown-label">利用終了日</span>
+            <span id="userPlanEndDate" class="user-dropdown-val"></span>
+          </div>
+        </div>
+        <div class="user-dropdown-footer">
+          <button id="swUpgradeBtn" title="Upgrade to Premium">UPGRADE</button>
+          <button id="btnCancelSubscription" style="display:none;">解約する</button>
+          <button id="btnLogout">
+            <svg viewBox="0 0 24 24"><path fill="currentColor" d="M17 7l-1.41 1.41L17.17 10H9v2h8.17l-1.58 1.58L17 15l4-4zM5 5h7V3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h7v-2H5V5z"/></svg>
+            <span>ログアウト</span>
+          </button>
+        </div>
       </div>
     </div>
   </div>
-
-  <div class="volume-panel">
-    <div class="volume-panel-label">
-      <span>VOL</span>
-    </div>
-    <div class="volume-scroll" id="volumeScroll">
-      <canvas id="volumeCanvas"></canvas>
-    </div>
-  </div>
-
-  <p class="stage-hint" id="statusHint">マイク未接続 — RECを押して開始</p>
 </div>
 
-<!-- クリア確認ダイアログ -->
-<div class="av-popup-backdrop" id="clearConfirmBackdrop"></div>
-<div class="av-popup clear-confirm-popup" id="clearConfirmPopup">
-  <p class="popup-title">Clear Roll?</p>
-  <p class="clear-confirm-desc">表示中のピッチロールを消去します。未保存の録音がある場合は破棄されます。</p>
-  <div class="save-btn-row">
-    <button class="save-cancel-btn" id="clearConfirmCancelBtn">Cancel</button>
-    <button class="popup-close-btn save-ok-btn clear-confirm-ok-btn" id="clearConfirmOkBtn">Clear</button>
-  </div>
-</div>
+<!-- PC v2シェル（#pcV2Root以下）はpitch-ui-pc-v2.jsがここに動的に構築する。
+     QNPLAYERと異なり、QNPITCHには移植元となる旧SP版マークアップが
+     存在しないため、.app-container相当の静的HTMLは置かない
+     （md/AI_ASSISTANT_PROJECT_CONTEXT.md §0-2参照）。 -->
 
-<!-- 録音停止時のファイル名確認ダイアログ -->
-<div class="av-popup-backdrop" id="saveBackdrop"></div>
-<div class="av-popup" id="savePopup">
-  <p class="popup-title">Save Recording</p>
-  <input type="text" id="saveNameInput" class="preset-name-input" maxlength="30">
-  <div class="save-btn-row">
-    <button class="save-cancel-btn" id="saveCancelBtn">Cancel</button>
-    <button class="popup-close-btn save-ok-btn" id="saveOkBtn">OK</button>
-  </div>
-</div>
+<!-- 各種モーダル（フィルタ設定・KEY&DRONE・録音一覧・リネーム等）は
+     実装時にここへ追加していく。 -->
 
-<!-- 一覧行のリネームダイアログ -->
-<div class="av-popup-backdrop" id="renameBackdrop"></div>
-<div class="av-popup" id="renamePopup">
-  <p class="popup-title">Rename</p>
-  <input type="text" id="renameNameInput" class="preset-name-input" maxlength="30">
-  <div class="save-btn-row">
-    <button class="save-cancel-btn" id="renameCancelBtn">Cancel</button>
-    <button class="popup-close-btn save-ok-btn" id="renameOkBtn">OK</button>
-  </div>
-</div>
-
-<!-- 下部固定トランスポート（QNAUDIO / QNTEMPOのtop-controlsに準拠） -->
-<div class="top-controls" id="topControls">
-  <div class="pb-info-row" id="pbInfoRow">
-    <span class="pb-name" id="pbName">—</span>
-    <span class="pb-score" id="pbScore"></span>
-    <div class="pb-progress-track"><div class="pb-progress-fill" id="pbProgressFill"></div></div>
-    <button id="pbCloseBtn" class="pb-close-btn" title="Close">
-      <svg viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 7 19l5.59-5.59L17.59 19 19 17.59 13.41 12z"/></svg>
-    </button>
-  </div>
-  <div class="top-controls-row">
-    <button id="recBtn" class="loopbtn loopbtn-rec" title="Record / Stop">
-      <svg id="recIcon" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8"/></svg>
-      <span class="top-controls-btn-label" id="recLabel">REC</span>
-    </button>
-    <button id="playToggleBtn" class="loopbtn loopbtn-play" title="Play / Pause" disabled>
-      <svg id="playIcon" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
-      <span class="top-controls-btn-label" id="playLabel">PLAY</span>
-    </button>
-    <button id="listBtn" class="loopbtn loopbtn-square" title="Recordings">
-      <svg viewBox="0 0 24 24"><path d="M4 6h16v2H4V6zm0 5h16v2H4v-2zm0 5h10v2H4v-2z"/></svg>
-      <span class="top-controls-btn-label" id="listBtnLabel">LIST</span>
-    </button>
-  </div>
-  <div class="top-controls-row top-controls-row-secondary">
-    <button id="saveBtn" class="loopbtn loopbtn-square" title="Save recording" disabled>
-      <svg viewBox="0 0 24 24"><path d="M17 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V7l-4-4zm-5 16c-1.66 0-3-1.34-3-3s1.34-3 3-3 3 1.34 3 3-1.34 3-3 3zm3-10H5V5h10v4z"/></svg>
-      <span class="top-controls-btn-label" id="saveBtnLabel">SAVE</span>
-    </button>
-    <button id="clearBtn" class="loopbtn loopbtn-square" title="Clear roll">
-      <svg viewBox="0 0 24 24"><path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/></svg>
-      <span class="top-controls-btn-label" id="clearBtnLabel">CLEAR</span>
-    </button>
-    <button id="tempoBtn" class="loopbtn loopbtn-square" title="Metronome">
-      <svg viewBox="0 0 24 24"><path d="M9 2v2h6V2h2v2.06c1.14.2 2 1.2 2 2.4 0 .77-.35 1.46-.9 1.92L20 20H4l1.9-11.62A2.5 2.5 0 0 1 5 6.46c0-1.2.86-2.2 2-2.4V2h2zm2.6 6.5-1.9 9.9h2.6l1.6-8.4-2.3-1.5z"/></svg>
-      <span class="top-controls-btn-label" id="tempoBtnLabel">TEMPO</span>
-    </button>
-    <button id="settingsBtn" class="loopbtn loopbtn-square" title="Settings">
-      <svg viewBox="0 0 24 24"><path d="M19.14 12.94c.04-.3.06-.61.06-.94 0-.32-.02-.64-.07-.94l2.03-1.58a.5.5 0 0 0 .12-.61l-1.92-3.32a.5.5 0 0 0-.59-.22l-2.39.96a7.03 7.03 0 0 0-1.62-.94l-.36-2.54a.5.5 0 0 0-.5-.42h-3.84a.5.5 0 0 0-.5.42l-.36 2.54c-.59.24-1.13.56-1.62.94l-2.39-.96a.5.5 0 0 0-.59.22L3.28 8.87a.5.5 0 0 0 .12.61l2.03 1.58c-.05.3-.09.63-.09.94s.02.64.07.94l-2.03 1.58a.5.5 0 0 0-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.25.42.5.42h3.84c.25 0 .46-.18.5-.42l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32a.5.5 0 0 0-.12-.61l-2.01-1.58zM12 15.5A3.5 3.5 0 1 1 12 8.5a3.5 3.5 0 0 1 0 7z"/></svg>
-      <span class="top-controls-btn-label" id="settingsBtnLabel">SET</span>
-    </button>
-  </div>
-</div>
-<div class="top-controls-spacer" id="topControlsSpacer"></div>
-
-<script src="app.js"></script>
-<script src="https://qonny-game.github.io/QN-PLAYER/qn-menu.js"></script>
+<script src="JS/pitch-core.js"></script>
+<script src="JS/pitch-ui-pc-v2.js"></script>
+<script src="JS/pitch-filters.js"></script>
+<script src="JS/pitch-recordings.js"></script>
+<script src="JS/pitch-mode-tuner.js"></script>
+<script src="JS/pitch-mode-pitch.js"></script>
+<script src="JS/pitch-theme.js"></script>
+<script type="module" src="JS/pitch-auth.js"></script>
+<!-- JS/pitch-metronome.js：内蔵メトロノームは実装後回し。着手時にここへ追加する。 -->
 </body>
 </html>
