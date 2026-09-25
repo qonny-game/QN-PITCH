@@ -1,13 +1,234 @@
 /* ============================================================
    style-recordings.css
-   録音の保存・一覧・リネームに関する補助スタイル。
-
-   【重要】録音一覧の行(.pitch-rec-row系)・保存/リネームダイアログ
-   (.pitch-dialog系)の本体スタイルは style-mode-pitch.css 側に既に
-   含まれている（PITCHMODEのメインウインドウ・下部バー・パネルの
-   スタイルと合わせて管理する方が見通しがよいため）。このファイルは
-   録音管理機能固有で、かつメインウインドウ側とは独立した見た目の
-   要素が増えた場合の置き場所として用意してある。
-
-   現時点で追加のスタイルはない。
+   録音一覧（Recordingsパネル、.pitch-rec-row）と、保存/リネーム/
+   クリア確認ダイアログ（パネル方式、#pcV2PanelBody内に一時表示）のスタイル。
    ============================================================ */
+
+/* .export-section/.export-run-btn等はQNPLAYERのExportモーダル用クラスを
+   そのまま流用している（中央モーダル本体は不要になったため削除済み）。 */
+
+.export-section {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-width: 0;
+}
+.export-section-label {
+  font-family: var(--font-display, 'Instrument Sans'), sans-serif;
+  font-size: var(--fs-micro);
+  font-weight: 700;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  color: #6b6b7b;
+}
+.export-filename-input {
+  width: 100%;
+  padding: 10px 12px;
+  background: #1c1c24;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-field);
+  color: var(--text-bright);
+  font-family: var(--font-body, 'Instrument Sans'), sans-serif;
+  font-size: var(--fs-body);
+  box-sizing: border-box;
+  transition: all 0.18s cubic-bezier(0.4, 0, 0.2, 1);
+}
+.export-filename-input:focus {
+  outline: none;
+  border-color: var(--accent-primary);
+  background: #22222c;
+}
+.export-run-btn {
+  flex-shrink: 0;
+  padding: 12px 28px;
+  background: linear-gradient(135deg, var(--accent-primary), var(--accent-secondary));
+  color: var(--text-pure-white);
+  border: none;
+  border-radius: var(--radius-pill);
+  font-family: var(--font-display, 'Instrument Sans'), sans-serif;
+  font-size: var(--fs-btn-primary);
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+  cursor: pointer;
+  box-shadow: 0 6px 20px var(--accent-glow);
+  transition: background var(--dur-hover) var(--ease-snap), box-shadow var(--dur-press) var(--ease-snap), transform var(--dur-press) var(--ease-snap);
+}
+.export-run-btn:hover:not(:disabled) {
+  background: linear-gradient(135deg, var(--accent-hover-1), var(--accent-hover-2));
+  box-shadow: 0 8px 24px var(--accent-glow);
+  transform: translateY(-1px);
+}
+.export-run-btn:active:not(:disabled) {
+  transform: translateY(0) scale(0.97);
+}
+/* CLEARダイアログの実行ボタンだけ赤系（危険な操作である旨を示す）。
+   QNPLAYERには対応するボタンが無いため新規追加。 */
+.export-run-btn-danger {
+  background: linear-gradient(135deg, #ef4444, #b91c1c);
+  box-shadow: 0 6px 20px rgba(239, 68, 68, 0.4);
+}
+.export-run-btn-danger:hover:not(:disabled) {
+  background: linear-gradient(135deg, #dc2626, #991b1b);
+  box-shadow: 0 8px 24px rgba(239, 68, 68, 0.5);
+}
+.export-cancel-btn {
+  flex-shrink: 0;
+  padding: 12px 20px;
+  background: transparent;
+  color: var(--icon-muted);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: var(--radius-pill);
+  font-family: var(--font-display, 'Instrument Sans'), sans-serif;
+  font-size: var(--fs-btn-primary);
+  font-weight: 600;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: background var(--dur-hover) var(--ease-snap), border-color var(--dur-hover) var(--ease-snap), color var(--dur-hover) var(--ease-snap);
+}
+.export-cancel-btn:hover {
+  background: var(--bg-hover-subtle);
+  border-color: rgba(255, 255, 255, 0.2);
+  color: var(--text-bright);
+}
+.export-cancel-btn:active {
+  transform: scale(0.97);
+}
+
+.pitch-clear-confirm-desc {
+  font-family: var(--font-body, 'Instrument Sans'), sans-serif;
+  font-size: var(--fs-body);
+  color: var(--icon-muted);
+  line-height: 1.5;
+  margin: 0;
+}
+
+/* ---------- 録音一覧（Recordingsパネル） ---------- */
+.pitch-rec-list-empty {
+  text-align: center;
+  padding: 24px 0;
+  color: #55555f;
+  font-family: var(--font-body, 'Instrument Sans'), sans-serif;
+  font-size: 13px;
+  margin: 0;
+}
+
+.pitch-rec-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 14px;
+  border-radius: var(--radius-popup);
+  background: #1c1c24;
+  border: 1px solid var(--border-subtle);
+  cursor: pointer;
+  margin-bottom: 8px;
+  transition: background var(--dur-hover) var(--ease-snap), border-color var(--dur-hover) var(--ease-snap), opacity 260ms ease;
+}
+.pitch-rec-row:last-child { margin-bottom: 0; }
+.pitch-rec-row.playing {
+  border-color: var(--accent-primary);
+  background: var(--accent-glow);
+}
+.pitch-rec-row.pcv2-row-deleting {
+  opacity: 0;
+}
+
+.pitch-rec-row .del-btn {
+  flex-shrink: 0;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  border: 2px solid var(--border-strong);
+  background: transparent;
+  cursor: pointer;
+  display: none;
+  padding: 0;
+}
+.text-edit-mode .pitch-rec-row .del-btn {
+  display: block;
+}
+.pitch-rec-row .del-btn.pcv2-selected {
+  background: var(--danger);
+  border-color: var(--danger);
+}
+
+.pitch-rec-row-icon {
+  flex-shrink: 0;
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.06);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--accent-primary);
+}
+.pitch-rec-row-icon svg { width: 14px; height: 14px; fill: currentColor; }
+.pitch-rec-row-info {
+  flex: 1;
+  min-width: 0;
+}
+.pitch-rec-row-name {
+  font-family: var(--font-display, 'Instrument Sans'), sans-serif;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text-bright);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.pitch-rec-row-meta {
+  font-family: var(--font-body, 'Instrument Sans'), sans-serif;
+  font-size: 10px;
+  color: #6b6b7b;
+  margin-top: 2px;
+}
+.pitch-rec-row-edit {
+  flex-shrink: 0;
+  width: 28px;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 8px;
+  background: transparent;
+  border: none;
+  color: #55555f;
+  cursor: pointer;
+}
+.pitch-rec-row-edit svg { width: 14px; height: 14px; fill: currentColor; }
+.text-edit-mode .pitch-rec-row-edit { display: none; }
+
+/* ============================================================
+   【v1.0.2】一時パネル（Save/Rename/Clear確認）のフッター。
+   QNPLAYERのexport-modal-footer相当だが、モーダルではなくPanel
+   領域（#pcV2PanelBody）内にそのまま置かれるため、パネル本体に
+   馴染むレイアウトにしている（.export-run-btn/.export-cancel-btn
+   自体はそのまま流用）。
+   ============================================================ */
+.pitch-temp-panel-footer {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 16px;
+}
+
+/* QNPLAYER由来の#pcV2PanelBody .export-run-btn等のID込み上書きを、
+   同等以上の詳細度で明示的に打ち消す（詳細度の罠、md §2-11参照）。 */
+#pcV2PanelBody .pitch-temp-panel-footer .export-run-btn {
+  width: auto;
+  padding: 12px 28px;
+}
+#pcV2PanelBody .pitch-temp-panel-footer .export-cancel-btn,
+#pcV2PanelBody .pitch-temp-panel-footer #pitchTempCancelBtn {
+  display: inline-flex;
+}
+#pcV2PanelBody .pitch-temp-panel-footer .export-run-btn-danger {
+  background: linear-gradient(135deg, #ef4444, #b91c1c);
+}
+#pcV2PanelBody .pitch-temp-panel-footer .export-run-btn-danger:hover:not(:disabled) {
+  background: linear-gradient(135deg, #dc2626, #991b1b);
+}

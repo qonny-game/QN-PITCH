@@ -1,14 +1,8 @@
 /* ============================================================
    style-core.css
-   デザイントークン（色・フォント・角丸・文字サイズ・モーション）と、
-   ヘッダー共通部品（#appHeader / #appLogo / #appVersion）。
-   メディアクエリを含まない。
-
-   【重要】このファイルの:rootトークン・[data-qn-theme]テーマ色は、
-   QNPLAYER（QNP2_16_10/CSS/style-core.css）のものと完全に同一の値。
-   md/AI_ASSISTANT_PROJECT_CONTEXT.md §0-2・§8の通り、QNPITCH独自の
-   デザイントークンは作らない。値を変更する場合は、QNPLAYER側との
-   一貫性を崩さないか必ず確認すること。
+   PC版デフォルトのレイアウト + PC/SP共通のデザイン（色・フォント・
+   部品単体の見た目）。メディアクエリを含まない。
+   スマホ幅(max-width:768px, 900px)向けの上書きは style-layout-sp.css 側。
    ============================================================ */
 
 @import url('https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@400;500;600;700&display=swap');
@@ -22,63 +16,74 @@
   --font-display: 'Instrument Sans';
   --font-body: 'Instrument Sans';
 
-  /* アイコン・補助テキストの既定色（落ち着いたグレー）。 */
+  /* アイコン・補助テキストの既定色（落ち着いたグレー）。OFF状態の
+     トグル、目/鉛筆/削除等の各種アイコン、ラベルなど、アプリ全体で
+     繰り返し使う「主張しすぎないグレー」をここに一元化する。
+     色を変えたい時は、ここを直すだけで全箇所に反映される。 */
   --icon-muted: #8b8b9e;
 
-  /* 白系のテキスト・強調色。 */
+  /* 白系のテキスト・強調色。テーマカラー(--accent-primary等)とは独立して
+     常に白系で使う箇所（見出し、値の強調表示、アイコンのホバー色等）を
+     ここに一元化する。
+     --text-bright: わずかに青みを含む白(#f0f0f3)。本文寄りの強調テキストや
+       ホバー時のアイコン色など、アプリ全体で最も多用される白。
+     --text-pure-white: 純白(#fff)。ボタン内の文字やボーダーなど、より
+       強いコントラストが欲しい箇所に使う。 */
   --text-bright: #f0f0f3;
   --text-pure-white: #fff;
 
-  /* 白の半透明ボーダー・背景。 */
+  /* 白の半透明ボーダー・背景。透明度の意味を用途で使い分けている
+     （0.08=枠線、0.06=ホバー時の背景）ため、値ごとに変数を分ける。 */
   --border-subtle: rgba(255, 255, 255, 0.08);
   --bg-hover-subtle: rgba(255, 255, 255, 0.06);
 
-  /* 削除・警告用の赤。テーマに関わらず独立。 */
+  /* 削除・警告用の赤。--accent-primaryはテーマ切り替えで色が変わる
+     （赤テーマ選択時は--accent-primary自体が赤になる）ため、削除ボタン等
+     の「常に赤であるべき」箇所はテーマに関わらず独立させておく。 */
   --danger: #ef4444;
 
-  /* TUNERMODEの音程判定色（旧QNTUNERから移植）。ピッチが低い/高い/
-     合っている状態を示す配色。テーマカラーとは独立させ、常に同じ
-     意味の色で表示する。 */
-  --note-flat: #60a5fa;
-  --note-in: #10b981;
-  --note-in-glow: rgba(16, 185, 129, 0.35);
-  --note-sharp: #f59e0b;
-
-  /* PITCHMODEのズレ判定色（旧QNPITCHから移植）。ピッチロール上の点や
-     セント表示の良否を示す配色。 */
-  --good: #4ade80;
-  --warn: #facc15;
-  --bad: #f87171;
-
   /* ============================================================
-     UIの統一ルール（角丸・文字サイズ・ボタン）。QNPLAYERと共通。
-     下部コントロールバー・アイコンバーのラベル・ロゴ/スプラッシュ・
-     メインウインドウ上のラベル等は意図的に例外扱い。それ以外
-     （パネル内・ポップアップ・ボタン・入力欄）は必ずこのトークンを
-     使い、個別のpx値を直書きしない。
+     【v2.16.0】UIの統一ルール（角丸・文字サイズ・ボタン）
+     アイコンバーのラベル・ロゴ/スプラッシュ・波形上のラベル・料金
+     モーダルの大見出しは、よく使う/アイコンだけでは分かりにくい等の
+     理由で意図的に例外扱い。それ以外（パネル内・ポップアップ・
+     ボタン・入力欄）は必ず下のトークンを使い、個別のpx値を直書きしない。
      ============================================================ */
+  /* 角丸：ボタン・チップ・トグル・ステッパー＝pill（左右が完全な半円）、
+     アイコンだけの丸ボタン＝round、入力欄＝field、浮かぶ箱（ポップアップ・
+     ドロップダウン）＝popup、モーダル＝modal。リストの行・パネル内の
+     区切りは角丸の枠を使わず、線(--border-subtle)で区切る。 */
   --radius-pill: 999px;
   --radius-round: 50%;
   --radius-field: 10px;
   --radius-popup: 14px;
   --radius-modal: 20px;
 
-  --fs-title: 20px;
-  --fs-heading: 15px;
-  --fs-body: 14px;
-  --fs-small: 12px;
-  --fs-micro: 11px;
-  --fs-btn: 12px;
-  --fs-btn-primary: 14px;
+  /* 文字サイズ：5段階＋ボタン2種。 */
+  --fs-title: 20px;    /* パネル見出し（#pcV2PanelHeader） */
+  --fs-heading: 15px;  /* セクション見出し（SPEED/KEY/EQUALIZER、含める項目 等） */
+  --fs-body: 14px;     /* リストの主テキスト・入力欄・行ラベル */
+  --fs-small: 12px;    /* 補足・説明・サイズ表示・アーティスト名 等 */
+  --fs-micro: 11px;    /* EQの目盛り数値・バッジ等の極小表示 */
+  --fs-btn: 12px;      /* 二次ボタン（RESET・プリセット・全選択 等） */
+  --fs-btn-primary: 14px; /* 主ボタン（DOWNLOAD/IMPORT/ADD AUDIO 等） */
 
+  /* 二次ボタンの共通寸法・枠線 */
   --btn-h: 30px;
   --btn-pad-x: 14px;
   --border-strong: rgba(255, 255, 255, 0.14);
 
-  /* モーション設計トークン。4種のイージングを動作の意味ごとに使い分ける。 */
+  /* ============================================================
+     モーション設計トークン（docs/ui-motion-haptics-design.md 参照）
+     4種のイージングを動作の意味ごとに使い分ける。
+     ============================================================ */
+  /* Snap: 即応。ボタンpress/hover、トグルON-OFF、ドラッグ追従 */
   --ease-snap: cubic-bezier(0.2, 0, 0, 1);
+  /* Glide: 滑走。値の変化、タブ切替、パネル開閉、テーマ切替 */
   --ease-glide: cubic-bezier(0.4, 0, 0.2, 1);
+  /* Pop: 弾む。ポップアップ/モーダルの出現、選択の確定 */
   --ease-pop: cubic-bezier(0.34, 1.56, 0.64, 1);
+  /* Dismiss: 退出。ポップアップ/モーダルを閉じる、消失系 */
   --ease-dismiss: cubic-bezier(0.4, 0, 1, 1);
 
   --dur-hover: 130ms;
@@ -88,7 +93,9 @@
   --dur-dismiss: 200ms;
 }
 
-/* ピンチズーム（拡大縮小ジェスチャー）を無効化する。 */
+/* ピンチズーム（拡大縮小ジェスチャー）を無効化する。
+   viewportメタタグのuser-scalable=noと合わせ、二重の保険としてtouch-actionでも制限する。
+   pan-x pan-yは通常のスクロール操作自体は引き続き許可し、拡大縮小ジェスチャーだけを禁止する。 */
 html {
   touch-action: pan-x pan-y;
 }
@@ -206,25 +213,41 @@ html {
 }
 
 body {
+  /* ベースの単色(#0d0d0f)の上に、テーマカラー(--accent-primary)を使った
+     ごく薄いグローを左上・右上から重ねる。--accent-glowは元々ボタンの
+     シャドウ用で透明度0.35と濃いため、ここでは別途0.08程度に抑えて
+     背景として使っても主張しすぎないようにしている。
+     テーマ切替時、--accent-primaryが変わればグローの色も自動で追従する。 */
   background:
     radial-gradient(circle at 15% 0%, color-mix(in srgb, var(--accent-primary) 12%, transparent), transparent 45%),
     radial-gradient(circle at 100% 15%, color-mix(in srgb, var(--accent-secondary) 10%, transparent), transparent 40%),
     #0d0d0f;
   color: var(--text-bright);
   font-family: var(--font-body, 'Instrument Sans'), -apple-system, BlinkMacSystemFont, sans-serif;
-  padding: 0;
+  padding: 24px;
   margin: 0;
   display: flex;
   flex-direction: column;
+  /* ウィンドウ幅に関わらず常に左端からpadding固定にするためstretchにする
+     （centerだと.app-containerのmax-width(1400px)を超える幅で左右中央寄せに
+     なり、幅によって左マージンの見え方が変動していた）。 */
   align-items: stretch;
 }
 
 #appHeader {
   width: 100%;
+  /* サイドバー(360px固定)以外のメイン領域は画面幅いっぱいに伸ばす方針のため、
+     max-widthでの頭打ちは廃止（.app-container側と合わせる）。 */
   display: flex;
   align-items: center;
   gap: 14px;
   position: relative;
+  /* ハンバーガーメニュー(.qn-menu-popup)はposition: fixedになっており、
+     #appHeaderのスタッキングコンテキストの外側に自力で出られるため、
+     #appHeader自体のz-indexを吸着タブ(410)やサイドバー(400)より
+     高くしておく必要はない。SP幅でサイドバーを開いた時は、ヘッダーより
+     サイドバーが手前に来る（ヘッダーが隠れる）のが意図した挙動のため、
+     それらより低い値に戻す。 */
   z-index: 200;
 }
 
@@ -239,6 +262,10 @@ body {
 }
 
 #appLogoQN {
+  /* テーマカラー(--accent-primary → --accent-secondary)を使ったグラデーション文字。
+     background-clip: textでテキストの形にグラデーションを流し込み、
+     本来のcolorはtransparentにして背景を透かして見せる。
+     Safari等webkit系ブラウザ向けに-webkit-プレフィックス版も明記する。 */
   background: linear-gradient(135deg, var(--accent-primary), var(--accent-secondary));
   -webkit-background-clip: text;
   background-clip: text;
@@ -250,29 +277,457 @@ body {
   font-size: 12px;
   font-weight: 500;
   letter-spacing: 0.5px;
+
   color: #6b6b7b;
   text-transform: none;
   vertical-align: middle;
 }
 
-/* ============================================================
-   ヘッダー右：TUNER/PITCH MODE切り替えボタン（QNPITCH固有）。
-   QNPLAYERには存在しない要素。§0-2参照：将来「PLAYER/TUNER/PITCH」の
-   3モード切替に拡張されうる前提で、シンプルな構造にしてある。
+/* 【重要】.app-container / .player-section / .sidebar-section /
+   .mobile-tabs / .sidebar-section h3（このセクション末尾まで）は、
+   PC v2が常時有効化されたことで.app-container自体が常にdisplay:none
+   になり、実質的に画面には一切表示されない。
+
+   削除しないこと：PC v2のbuild()は、現在アクティブなパネル
+   （.mobile-tab-panel）だけを.app-containerの外へ移動し、非アクティブ
+   なパネルはこの構造の中に留まったままになる。PC v2のJS
+   （markAnchor/restoreAnchor）がDOM構造の前提として今も必要としている
+   ため、「今は見えない」だけで、CSSごと削除すると壊れる。
    ============================================================ */
+.app-container {
+  display: grid;
+  grid-template-columns: 1fr 360px;
+  gap: 24px;
+  align-items: start;
+  margin-top: 15px;
+  width: 100%;
+  /* サイドバー(360px固定)は変えず、メイン(1fr)側だけがウィンドウ幅に応じて
+     自然に伸びるよう、max-widthでの頭打ちを廃止。 */
+  box-sizing: border-box;
+  position: relative;
+  z-index: 1;
+}
+
+.player-section {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  min-width: 0;
+}
+
+/* 【QNPITCH固有】QNPLAYERにはモード概念が無いため存在しなかった
+   問題への対処。.player-sectionのdisplay:flexは、ブラウザ既定の
+   [hidden]{display:none}より詳細度が高く、hidden属性だけでは
+   隠れない。pitch-ui-pc-v2.jsのsetMode()がTUNERMODE/PITCHMODEの
+   どちらか一方に[hidden]を付け外しするため、ここで明示的に
+   display:noneを優先させる。 */
+.player-section[hidden] {
+  display: none;
+}
+
+.sidebar-section {
+  display: flex;
+  flex-direction: column;
+  height: fit-content;
+}
+
+.sidebar-section h3 {
+  font-family: var(--font-display, 'Instrument Sans'), sans-serif;
+  font-size: var(--fs-heading);
+  margin: 0;
+  color: var(--icon-muted);
+  letter-spacing: 1px;
+  text-transform: uppercase;
+}
+
+/* Markers / Playlist の切り替えタブ（PC/SP共通）。下のパネルと隙間なく繋げるため角丸は上側だけ。 */
+.mobile-tabs {
+  display: flex;
+  gap: 6px;
+  background: #16161b;
+  border: 1px solid var(--bg-hover-subtle);
+  border-bottom: none;
+  border-radius: 14px 14px 0 0;
+  padding: 6px;
+  position: relative;
+  z-index: 1;
+}
+
+.mobile-tab-btn {
+  flex: 1;
+  padding: 13px 6px;
+  background: transparent;
+  border: none;
+  border-radius: 10px;
+  color: var(--icon-muted);
+  font-family: var(--font-display, 'Instrument Sans'), sans-serif;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.3px;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  white-space: nowrap;
+}
+
+.mobile-tab-btn.active {
+  /* 主要ボタン（PLAY等）と同じグラデーションに揃える。単色のvar(--accent-primary)
+     だけだと、他の主要ボタンのグラデーションと並んだ時に色味が微妙にずれて見えるため。 */
+  background: linear-gradient(135deg, var(--accent-primary), var(--accent-secondary));
+  color: var(--text-pure-white);
+}
+
+.mobile-tab-btn:not(.active):hover {
+  background: #22222c;
+  color: var(--text-bright);
+}
+
+/* タブパネルは選択中のもの以外を隠す。タブの直下は上側の角丸をなくして一体化させる。 */
+.mobile-tab-panel {
+  display: none;
+  width: 100%;
+  box-sizing: border-box;
+  background: #16161b;
+  border: 1px solid var(--bg-hover-subtle);
+  border-top: none;
+  border-radius: 0 0 16px 16px;
+  padding: 10px 20px 20px;
+}
+
+.mobile-tab-panel.mobile-tab-active {
+  display: block;
+  width: 100%;
+}
+
+/* タブ自体に「Markers」「Playlist」の名前が出ているため、
+   パネル内の見出し(タイトル・ACTIVE数/トラック数)は重複するので非表示にする。
+   ただしTextタブの見出し行(.markers-heading-row)は、単なるタイトル表示ではなく
+   フルスクリーンボタン(noteTextFullscreenBtn)を含む操作行のため、
+   ここでは除外して表示したままにする。 */
+.mobile-tab-panel:not([data-tab-panel="text"]) .markers-heading-row {
+  display: none;
+}
+
+/* CONTROLタブ：VOL/SPEED(+Auto Speed)/KEYの操作UI自体（スライダー・ステッパー等）を、
+   ポップアップに隠さず上から順に展開表示する。中身はBasic欄と同じ.control-cardを使い、
+   IDだけ別にして値を双方向に同期させている（player-ui-shared.js側）。 */
+.control-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+
+/* CONTROLタブの中の各.control-cardは、Markers/Playlistのリスト同様、
+   罫線区切りのフラットなデザインに統一する（カード背景・枠は廃止）。 */
+.control-list .control-card {
+  background: none;
+  border: none;
+  border-bottom: 1px solid var(--border-subtle);
+  border-radius: 0;
+  padding: 14px 0;
+  min-width: 0;
+}
+
+.control-list .control-card:first-child {
+  padding-top: 0;
+}
+
+.control-list .control-card:last-child {
+  border-bottom: none;
+  padding-bottom: 0;
+}
+
+.markers-heading-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 6px;
+}
+
+/* SP幅限定：MARKERS/PLAYLISTタブ内リスト最上部のアクションボタン（+MARKER, SELECT FILE）。
+   PC幅では他の場所に同じ機能のボタンが既にあるため非表示。
+   このデフォルト非表示自体はPC専用のためstyle-core-pc.cssへ移動済み。 */
+
+
+/* QNPLAYER由来の曲再生UI（TIME表示、前の曲/次の曲、VOL/SPEED/KEY/EQ/Export行、波形バー・マーカー、ループ区間ハイライト等）は
+   QNPITCHでは使用しないため削除済み（掃除、v1.0.4→v1.0.5時点）。復活させる場合はQNPLAYER側のstyle-core.cssを参照。 */
+
+
+.control-card {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 6px;
+  min-width: 180px;
+  box-sizing: border-box;
+}
+
+.control-card label {
+  font-family: var(--font-display, 'Instrument Sans'), sans-serif;
+  font-size: var(--fs-heading);
+  font-weight: 600;
+  letter-spacing: 0.5px;
+  color: var(--icon-muted);
+  text-transform: uppercase;
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 6px;
+}
+
+/* labelの直接の子要素はテキスト表示・トグル・リセットボタンの3つに
+   なるため、justify-content: space-betweenのままだとトグルが中央に
+   飛んでしまう。flex-startにし、リセットボタン側をmargin-left: autoで
+   右端に固定する（トグルはテキストのすぐ右という自然な位置に残る）。 */
+.control-card label .mini-reset-btn {
+  margin-left: auto;
+}
+
+.control-card .control-effect-toggle {
+  width: 30px;
+  height: 17px;
+  flex-shrink: 0;
+}
+
+.control-card .control-effect-toggle .glow-switch-knob {
+  width: 11px;
+  height: 11px;
+}
+
+.control-card .control-effect-toggle[aria-checked="true"] .glow-switch-knob {
+  transform: translateX(13px);
+}
+
+.control-card input[type="range"] {
+  display: block;
+  width: 100%;
+  box-sizing: border-box;
+  margin: 0;
+  cursor: pointer;
+  -webkit-appearance: none;
+  appearance: none;
+  background: transparent;
+}
+
+/* ネイティブのaccent-colorだと、トラックの未到達部分がブラウザ既定の
+   白っぽい色で描画されるため、トラック自体を明示的にスタイリングし、
+   進捗（スライダー値）より左側だけaccent-primary色になるようCSS変数
+   （--range-progress、0〜100の数値。pitch-ui-shared.js側で入力のたびに
+   更新する）を使ったグラデーションで表現する。 */
+.control-card input[type="range"]::-webkit-slider-runnable-track {
+  height: 4px;
+  border-radius: 2px;
+  background: linear-gradient(
+    to right,
+    var(--accent-primary) 0%,
+    var(--accent-primary) calc(var(--range-progress, 50) * 1%),
+    #2a2a35 calc(var(--range-progress, 50) * 1%),
+    #2a2a35 100%
+  );
+  border: none;
+}
+
+.control-card input[type="range"]::-moz-range-track {
+  height: 4px;
+  border-radius: 2px;
+  background: #2a2a35;
+  border: none;
+}
+
+.control-card input[type="range"]::-moz-range-progress {
+  height: 4px;
+  border-radius: 2px;
+  background: var(--accent-primary);
+}
+
+.control-card input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 14px;
+  height: 14px;
+  margin-top: -5px;
+  border-radius: 50%;
+  background: var(--accent-primary);
+  border: none;
+  cursor: pointer;
+}
+
+.control-card input[type="range"]::-moz-range-thumb {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: var(--accent-primary);
+  border: none;
+  cursor: pointer;
+}
+
+/* Auto Speed：マーカー区間ループをN回通過するたびにSpeedを自動で増減する機能のカード。
+   既存のGlow機能と同じ「上に境界線を引いて区切る」デザインを踏襲する。 */
+
+body, button {
+  user-select: none;
+  -webkit-user-select: none;
+  -ms-user-select: none;
+}
+
+/* ============================================================
+   起動時スプラッシュ(#splashOverlay)
+   ページの背景色(body背景)と同じ色で画面全体を覆い、初期化中の一瞬だけ
+   見えてしまう「No file/ドラッグ案内」画面を隠す。フェードアウト完了後は
+   pointer-events:noneにした上でdisplay:noneにする（JS側で制御）。
+   ============================================================ */
+#splashOverlay {
+  position: fixed;
+  inset: 0;
+  z-index: 2000;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  background: #0b0b0d;
+  opacity: 1;
+  transition: opacity 0.5s ease;
+}
+
+#splashOverlay.splash-fade-out {
+  opacity: 0;
+  pointer-events: none;
+}
+
+/* 「奥から浮き上がってくる」感を出すため、開始スケールを大きく縮小し、
+   軽いブラーを重ねる。scaleだけでなくblurも同時に解けていくことで、
+   遠くの暗闇からピントが合いながら近づいてくる印象になる。 */
+#splashLogo {
+  font-family: var(--font-display, 'Instrument Sans'), sans-serif;
+  font-size: 60px;
+  font-weight: 700;
+  letter-spacing: 1.5px;
+  color: var(--text-bright);
+  text-transform: uppercase;
+  opacity: 0;
+  transform: scale(0.55);
+  filter: blur(8px);
+  animation: splashLogoIn 1.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+/* バージョン表記：ヘッダー(#appLogo 32px + #appVersion 12px)と同じ比率
+   （60px : 22px ≒ 32px : 12px）でサイズ感を揃える。ロゴ本体より少し遅れて
+   フェードインし、ロゴが浮き上がった後に続いて現れるようにする。 */
+#splashVersion {
+  margin-top: 10px;
+  font-family: var(--font-display, 'Instrument Sans'), sans-serif;
+  font-size: 22px;
+  font-weight: 500;
+  letter-spacing: 0.5px;
+  color: #6b6b7b;
+  opacity: 0;
+  transform: scale(0.55);
+  filter: blur(8px);
+  animation: splashLogoIn 1.3s cubic-bezier(0.16, 1, 0.3, 1) 0.15s forwards;
+}
+
+/* フェードアウト開始時：ロゴ自体も、もう一度ふわっと拡大しながら
+   消えていく演出を重ねる（#splashOverlay側のopacity transitionとは
+   別に、ロゴだけ一回り大きくズームしながらフェードアウトする）。 */
+#splashOverlay.splash-fade-out #splashLogo,
+#splashOverlay.splash-fade-out #splashVersion {
+  animation: splashLogoOut 0.5s ease forwards;
+}
+
+#splashLogoQN {
+  background: linear-gradient(135deg, var(--accent-primary), var(--accent-secondary));
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  color: transparent;
+}
+
+@keyframes splashLogoIn {
+  from {
+    opacity: 0;
+    transform: scale(0.55);
+    filter: blur(8px);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+    filter: blur(0);
+  }
+}
+
+@keyframes splashLogoOut {
+  from {
+    opacity: 1;
+    transform: scale(1);
+    filter: blur(0);
+  }
+  to {
+    opacity: 0;
+    transform: scale(1.15);
+    filter: blur(4px);
+  }
+}
+
+@media (max-width: 360px) {
+  #splashLogo {
+    font-size: 44px;
+  }
+  #splashVersion {
+    font-size: 16px;
+  }
+}
+
+
+/* ============================================================
+   ヘッダーのマイクON/OFFボタン・TUNER/PITCH MODE切替ボタン
+   （QNPITCH固有、QNPLAYERには存在しない要素）。
+   マイクボタンはstyle-theme.cssの#qnMenuBtn（丸いアイコンボタン）と
+   同じ型を踏襲。MODE切替はQNPLAYERのピル型セグメントコントロールに
+   揃えた新規デザイン。
+   ============================================================ */
+#pitchHeaderMicBtn {
+  background: #18181b;
+  border: 1px solid #27272a;
+  color: var(--icon-muted);
+  width: 40px;
+  height: 40px;
+  border-radius: var(--radius-round);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: background var(--dur-hover) var(--ease-snap), border-color var(--dur-hover) var(--ease-snap), color var(--dur-hover) var(--ease-snap);
+}
+#pitchHeaderMicBtn:hover {
+  background: #27272a;
+  color: var(--text-bright);
+  border-color: rgba(255, 255, 255, 0.2);
+}
+#pitchHeaderMicBtn svg {
+  width: 18px;
+  height: 18px;
+  fill: currentColor;
+}
+#pitchHeaderMicBtn.mic-on {
+  background: var(--accent-glow);
+  border-color: var(--accent-primary);
+  color: var(--accent-primary);
+}
+
 #pitchModeToggle {
   display: flex;
   align-items: center;
-  margin-left: auto;
   background: rgba(255, 255, 255, 0.04);
-  border: 1px solid var(--border-subtle);
+  border: 1px solid #27272a;
   border-radius: var(--radius-pill);
   padding: 3px;
   gap: 2px;
+  flex-shrink: 0;
 }
-
 .pitch-mode-btn {
   appearance: none;
+  -webkit-appearance: none;
   border: none;
   background: none;
   color: var(--icon-muted);
@@ -285,11 +740,9 @@ body {
   cursor: pointer;
   transition: color var(--dur-hover) var(--ease-snap), background var(--dur-hover) var(--ease-snap);
 }
-
 .pitch-mode-btn:hover {
   color: var(--text-bright);
 }
-
 .pitch-mode-btn.active {
   color: var(--text-pure-white);
   background: linear-gradient(135deg, var(--accent-primary), var(--accent-secondary));

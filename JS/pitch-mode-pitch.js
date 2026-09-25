@@ -4,25 +4,20 @@
 //
 // 【移植元】旧QNPITCH(app.js)のロール描画・マイク解析・REC/PLAY/SAVE・
 // 録音一覧を移植。ピッチ検出はpitch-core.js、フィルタ/スコア判定は
-// pitch-filters.js、永続化はpitch-recordings.jsに分離済みのため、
-// ここではそれらを組み合わせてUIを構築する。
+// pitch-filters.js、永続化はpitch-recordings.jsに分離済み。
 //
-// 【今回のスコープ外（次回以降に実装）】KEY&DRONE（スケールハイライト・
-// 基準ピッチ再生）、内蔵メトロノーム、ピンチズーム（VISIBLE_ROWS可変）、
-// ノートラベルのタップ発音。md/AI_ASSISTANT_PROJECT_CONTEXT.md参照。
+// 【今回のスコープ外（次回以降に実装）】KEY&DRONE、内蔵メトロノーム、
+// ピンチズーム、ノートラベルのタップ発音。
 // ============================================================
 
 window.QNPitch = window.QNPitch || {};
 
 (function () {
-  const core = window.QNPitch.core;
-
-  // ==================== 表示設定（固定値。ピンチズームは次回実装） ====================
-  const FULL_RANGE = { min: 24, max: 108 }; // C1 - C8
-  const VISIBLE_ROWS = 22; // 固定値（旧QNPITCHのVISIBLE_ROWS_MAXとMINの中間程度）
+  const FULL_RANGE = { min: 24, max: 108 };
+  const VISIBLE_ROWS = 22;
   const PIXELS_PER_SEC = 60;
   const INITIAL_BUFFER_SEC = 30;
-  const INITIAL_FOCUS = { min: 48, max: 72 }; // 初期スクロール位置（C3-C5あたり）
+  const INITIAL_FOCUS = { min: 48, max: 72 };
 
   let ROW_HEIGHT = 22;
   let canvasHeight = 0;
@@ -31,32 +26,35 @@ window.QNPitch = window.QNPitch || {};
   function totalRows() {
     return FULL_RANGE.max - FULL_RANGE.min + 1;
   }
-
   function midiToY(midi) {
     const clamped = Math.max(FULL_RANGE.min, Math.min(FULL_RANGE.max, midi));
     return (FULL_RANGE.max - clamped) * ROW_HEIGHT;
   }
 
   // ==================== 状態 ====================
-  let pitchTrack = []; // { t, midi, cents, rms, voiced }
+  let pitchTrack = [];
   let startTime = 0;
   let recording = false;
-  let pendingRecording = null; // { blob, pitchTrack, duration, score, name }
-  let currentPlayback = null; // { id, audio, rafId }
+  let pendingRecording = null;
+  let currentPlayback = null;
 
   let micSession = null;
   let mediaRecorder = null;
   let recordedChunks = [];
 
-  // Canvas参照（renderMainViewのたびに再取得）
   let canvas = null, ctx = null;
   let volumeCanvas = null, volCtx = null;
   let rollScroll = null, rollKeys = null, rollContent = null;
   let volumeScroll = null;
   let cursorEl = null;
 
+  function getCore() {
+    return window.QNPitch.core;
+  }
+
   // ==================== キャンバスサイズ ====================
   function setupSize() {
+    if (!rollScroll) return;
     const panelHeight = rollScroll.parentElement.clientHeight || 320;
     ROW_HEIGHT = Math.max(14, Math.floor(panelHeight / VISIBLE_ROWS));
     canvasHeight = totalRows() * ROW_HEIGHT;
@@ -73,9 +71,8 @@ window.QNPitch = window.QNPitch || {};
       volumeCanvas.height = volumeCanvas.parentElement.clientHeight || 72;
     }
 
-    rollScroll.style.height = panelHeight + 'px';
-    rollKeys.style.height = panelHeight + 'px';
     rollKeys.innerHTML = '';
+    const core = getCore();
     for (let m = FULL_RANGE.min; m <= FULL_RANGE.max; m++) {
       const y = midiToY(m);
       const noteName = core.NOTE_NAMES[((m % 12) + 12) % 12];
@@ -104,6 +101,7 @@ window.QNPitch = window.QNPitch || {};
   // ==================== 描画 ====================
   function drawBackground() {
     ctx.clearRect(0, 0, canvasWidth, canvasHeight);
+    const core = getCore();
     for (let m = FULL_RANGE.min; m <= FULL_RANGE.max; m++) {
       const y = midiToY(m);
       const noteName = core.NOTE_NAMES[((m % 12) + 12) % 12];
@@ -255,6 +253,17 @@ window.QNPitch = window.QNPitch || {};
     hint.classList.toggle('live', !!live);
   }
 
+  function updateHeaderMicBtn() {
+    const btn = document.getElementById('pitchHeaderMicBtn');
+    if (btn) btn.classList.toggle('mic-on', recording);
+    const recBtn = document.getElementById('pitchRecBtn');
+    if (recBtn) {
+      recBtn.classList.toggle('is-recording', recording);
+      const label = document.getElementById('pitchRecLabel');
+      if (label) label.textContent = recording ? 'Stop' : 'Rec';
+    }
+  }
+
   function updateSaveBtnState() {
     const saveBtn = document.getElementById('pitchSaveBtn');
     if (saveBtn) saveBtn.disabled = !pendingRecording;
@@ -272,10 +281,7 @@ window.QNPitch = window.QNPitch || {};
       return;
     }
 
-    // 解析用セッションは録音用ストリームとは別に、pitch-core.jsの
-    // 通常経路（マイクを再取得）で開始する。ブラウザによっては同一
-    // ストリームをMediaRecorderとAnalyserNodeの両方に使い回すと
-    // 不安定になることがあるため、旧QNPITCHと同様に独立させている。
+    const core = getCore();
     micSession = core.createAnalysisSession({
       fftSize: 2048,
       onFrame(result) {
@@ -297,15 +303,13 @@ window.QNPitch = window.QNPitch || {};
     mediaRecorder.start(250);
     mediaRecorder._rawStream = stream;
 
-    const recBtn = document.getElementById('pitchRecBtn');
-    const recLabel = document.getElementById('pitchRecLabel');
-    if (recBtn) recBtn.classList.add('recording');
-    if (recLabel) recLabel.textContent = 'STOP';
+    updateHeaderMicBtn();
     updateStatusHint('録音中...', true);
   }
 
   function handleAnalysisFrame(freq, rms) {
     if (!recording) return;
+    const core = getCore();
     const t = (performance.now() - startTime) / 1000;
     if (freq > 50 && freq < 1200) {
       const midi = core.freqToMidi(freq);
@@ -343,11 +347,8 @@ window.QNPitch = window.QNPitch || {};
     recording = false;
     if (micSession) { micSession.stop(); micSession = null; }
 
-    const recBtn = document.getElementById('pitchRecBtn');
-    const recLabel = document.getElementById('pitchRecLabel');
-    if (recBtn) recBtn.classList.remove('recording');
-    if (recLabel) recLabel.textContent = 'REC';
-    updateStatusHint('マイク未接続 — RECを押して開始', false);
+    updateHeaderMicBtn();
+    updateStatusHint('マイク未接続 — ヘッダーのマイクボタンで開始', false);
 
     const finalTrack = pitchTrack.slice();
 
@@ -397,7 +398,7 @@ window.QNPitch = window.QNPitch || {};
         const pbName = document.getElementById('pitchPbName');
         if (pbName) pbName.textContent = chosenName;
       }
-      refreshRecList();
+      rec.refreshRecList();
     } catch (err) {
       console.error(err);
       updateStatusHint('保存に失敗しました', false);
@@ -405,15 +406,6 @@ window.QNPitch = window.QNPitch || {};
   }
 
   // ==================== 再生 ====================
-  function setPlayIcon(isPlaying) {
-    const playIcon = document.getElementById('pitchPlayIcon');
-    const playLabel = document.getElementById('pitchPlayLabel');
-    if (playIcon) playIcon.innerHTML = isPlaying
-      ? '<path d="M6 5h4v14H6zm8 0h4v14h-4z"/>'
-      : '<path d="M8 5v14l11-7z"/>';
-    if (playLabel) playLabel.textContent = isPlaying ? 'PAUSE' : 'PLAY';
-  }
-
   function stopPlayback() {
     if (currentPlayback) {
       currentPlayback.audio.pause();
@@ -423,13 +415,22 @@ window.QNPitch = window.QNPitch || {};
     }
     const pbInfoRow = document.getElementById('pitchPbInfoRow');
     const playToggleBtn = document.getElementById('pitchPlayToggleBtn');
-    if (pbInfoRow) pbInfoRow.classList.remove('open');
+    if (pbInfoRow) pbInfoRow.hidden = true;
     if (playToggleBtn) playToggleBtn.disabled = true;
     setPlayIcon(false);
     hideCursor();
-    refreshRecList();
+    if (window.QNPitch.recordings) window.QNPitch.recordings.refreshRecList();
     setupSize();
     redraw();
+  }
+
+  function setPlayIcon(isPlaying) {
+    const playIcon = document.getElementById('pitchPlayIcon');
+    const playLabel = document.getElementById('pitchPlayLabel');
+    if (playIcon) playIcon.innerHTML = isPlaying
+      ? '<path d="M6 5h4v14H6zm8 0h4v14h-4z"/>'
+      : '<path d="M8 5v14l11-7z"/>';
+    if (playLabel) playLabel.textContent = isPlaying ? 'Pause' : 'Play';
   }
 
   function selectRecording(rec) {
@@ -455,7 +456,7 @@ window.QNPitch = window.QNPitch || {};
     if (pbName) pbName.textContent = rec.name;
     if (pbScore) pbScore.textContent = (rec.score !== null && rec.score !== undefined) ? ('SCORE ' + rec.score + '%') : '';
     if (pbProgressFill) pbProgressFill.style.width = '0%';
-    if (pbInfoRow) pbInfoRow.classList.add('open');
+    if (pbInfoRow) pbInfoRow.hidden = false;
     if (playToggleBtn) playToggleBtn.disabled = false;
 
     setupSize();
@@ -469,7 +470,7 @@ window.QNPitch = window.QNPitch || {};
     audio.play();
     setPlayIcon(true);
     tickPlayback();
-    refreshRecList();
+    if (window.QNPitch.recordings) window.QNPitch.recordings.refreshRecList();
   }
 
   function tickPlayback() {
@@ -486,88 +487,10 @@ window.QNPitch = window.QNPitch || {};
     currentPlayback.rafId = requestAnimationFrame(tickPlayback);
   }
 
-  // ==================== 録音一覧パネル ====================
-  async function refreshRecList() {
-    const scrollEl = document.getElementById('pitchRecListScroll');
-    if (!scrollEl) return;
-    const rec = window.QNPitch.recordings;
-    const list = await rec.dbGetAllRecordings();
-    scrollEl.innerHTML = '';
-    if (!list.length) {
-      scrollEl.innerHTML = '<p class="pitch-rec-list-empty">まだ録音がありません</p>';
-      return;
-    }
-    list.forEach(function (item) {
-      const row = document.createElement('div');
-      row.className = 'pitch-rec-row';
-      if (currentPlayback && currentPlayback.id === item.id) row.classList.add('playing');
-
-      let metaText = rec.formatDateTime(item.createdAt) + ' ・ ' + rec.formatDuration(item.duration);
-      if (item.score !== null && item.score !== undefined) metaText += ' ・ ' + item.score + '%';
-
-      row.innerHTML =
-        '<div class="pitch-rec-row-icon"><svg viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg></div>' +
-        '<div class="pitch-rec-row-info">' +
-          '<div class="pitch-rec-row-name"></div>' +
-          '<div class="pitch-rec-row-meta"></div>' +
-        '</div>' +
-        '<button type="button" class="pitch-rec-row-edit"><svg viewBox="0 0 24 24"><path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34a.9959.9959 0 0 0-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/></svg></button>' +
-        '<button type="button" class="pitch-rec-row-delete">✕</button>';
-
-      row.querySelector('.pitch-rec-row-name').textContent = item.name;
-      row.querySelector('.pitch-rec-row-meta').textContent = metaText;
-
-      row.querySelector('.pitch-rec-row-edit').addEventListener('click', async (e) => {
-        e.stopPropagation();
-        const newName = await rec.openRenameDialog(item.name);
-        if (newName && newName !== item.name) {
-          await rec.dbRenameRecording(item.id, newName);
-          if (currentPlayback && currentPlayback.id === item.id) {
-            const pbName = document.getElementById('pitchPbName');
-            if (pbName) pbName.textContent = newName;
-          }
-          await refreshRecList();
-        }
-      });
-      row.querySelector('.pitch-rec-row-delete').addEventListener('click', async (e) => {
-        e.stopPropagation();
-        if (currentPlayback && currentPlayback.id === item.id) stopPlayback();
-        await rec.dbDeleteRecording(item.id);
-        await refreshRecList();
-      });
-      row.addEventListener('click', () => selectRecording(item));
-
-      scrollEl.appendChild(row);
-    });
-  }
-
-  // ==================== メインウインドウ ====================
-  function renderMainView(container) {
-    container.innerHTML =
-      '<div id="pitchStage">' +
-        '<div class="pitch-stage-meta">' +
-          '<span class="pitch-stage-meta-label">NOTE</span>' +
-          '<span class="pitch-stage-meta-value" id="pitchNoteReadout">--</span>' +
-          '<span class="pitch-cents-readout" id="pitchCentsReadout">-- ¢</span>' +
-        '</div>' +
-        '<div class="pitch-roll-panel">' +
-          '<div class="pitch-roll-keys" id="pitchRollKeys"></div>' +
-          '<div class="pitch-roll-scroll" id="pitchRollScroll">' +
-            '<div class="pitch-roll-content" id="pitchRollContent">' +
-              '<canvas id="pitchRollCanvas"></canvas>' +
-            '</div>' +
-          '</div>' +
-        '</div>' +
-        '<div class="pitch-volume-panel">' +
-          '<div class="pitch-volume-panel-label"><span>VOL</span></div>' +
-          '<div class="pitch-volume-scroll" id="pitchVolumeScroll">' +
-            '<canvas id="pitchVolumeCanvas"></canvas>' +
-          '</div>' +
-        '</div>' +
-        '<p class="pitch-stage-hint" id="pitchStatusHint">マイク未接続 — RECを押して開始</p>' +
-      '</div>';
-
+  // ==================== メインエリア初期化 ====================
+  function initMainArea() {
     canvas = document.getElementById('pitchRollCanvas');
+    if (!canvas) return;
     ctx = canvas.getContext('2d');
     volumeCanvas = document.getElementById('pitchVolumeCanvas');
     volCtx = volumeCanvas.getContext('2d');
@@ -589,91 +512,68 @@ window.QNPitch = window.QNPitch || {};
       }
     });
 
-    window.QNPitch.recordings.ensureDialogsInDom();
-
     setupSize();
     redraw();
     scrollToRange(INITIAL_FOCUS);
-    refreshRecList();
     updateSaveBtnState();
+
+    if (window.QNPitch.recordings) window.QNPitch.recordings.refreshRecList();
   }
 
-  function onModeLeave() {
-    if (recording) endRecording();
-    if (currentPlayback) stopPlayback();
-  }
-
-  // ==================== 下部バー ====================
-  function renderBottomBar(container) {
-    container.innerHTML =
-      '<div class="pitch-pb-info-row" id="pitchPbInfoRow">' +
-        '<span class="pitch-pb-name" id="pitchPbName">—</span>' +
-        '<span class="pitch-pb-score" id="pitchPbScore"></span>' +
-        '<div class="pitch-pb-progress-track"><div class="pitch-pb-progress-fill" id="pitchPbProgressFill"></div></div>' +
-        '<button type="button" class="pitch-pb-close-btn" id="pitchPbCloseBtn" title="Close">' +
-          '<svg viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 7 19l5.59-5.59L17.59 19 19 17.59 13.41 12z"/></svg>' +
-        '</button>' +
-      '</div>' +
-      '<button type="button" class="pcv2-ctrl-btn" id="pitchRecBtn" title="Record / Stop">' +
-        '<svg id="pitchRecIcon" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8"/></svg>' +
-        '<span id="pitchRecLabel">REC</span>' +
-      '</button>' +
-      '<button type="button" class="pcv2-ctrl-btn" id="pitchPlayToggleBtn" title="Play / Pause" disabled>' +
-        '<svg id="pitchPlayIcon" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>' +
-        '<span id="pitchPlayLabel">PLAY</span>' +
-      '</button>' +
-      '<button type="button" class="pcv2-ctrl-btn" id="pitchSaveBtn" title="Save recording" disabled>' +
-        '<svg viewBox="0 0 24 24"><path d="M17 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V7l-4-4zm-5 16c-1.66 0-3-1.34-3-3s1.34-3 3-3 3 1.34 3 3-1.34 3-3 3zm3-10H5V5h10v4z"/></svg>' +
-        '<span>SAVE</span>' +
-      '</button>' +
-      '<button type="button" class="pcv2-ctrl-btn" id="pitchClearBtn" title="Clear roll">' +
-        '<svg viewBox="0 0 24 24"><path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/></svg>' +
-        '<span>CLEAR</span>' +
-      '</button>';
-
-    document.getElementById('pitchRecBtn').addEventListener('click', () => {
-      if (recording) endRecording(); else beginRecording();
-    });
-    document.getElementById('pitchPlayToggleBtn').addEventListener('click', () => {
-      if (!currentPlayback) return;
-      const audio = currentPlayback.audio;
-      if (audio.paused) { audio.play(); setPlayIcon(true); tickPlayback(); }
-      else { audio.pause(); setPlayIcon(false); }
-    });
-    document.getElementById('pitchSaveBtn').addEventListener('click', handleSaveClick);
-    document.getElementById('pitchPbCloseBtn').addEventListener('click', stopPlayback);
-    document.getElementById('pitchClearBtn').addEventListener('click', async () => {
-      const ok = await window.QNPitch.recordings.openClearConfirmDialog();
-      if (!ok) return;
-      pitchTrack = [];
-      pendingRecording = null;
-      updateSaveBtnState();
-      if (currentPlayback) stopPlayback();
-      canvasWidth = PIXELS_PER_SEC * INITIAL_BUFFER_SEC;
-      setupSize();
-      redraw();
-    });
-  }
-
-  window.QNPitch.mainView.register('pitch', {
-    render: renderMainView,
-    onModeLeave
-  });
-
-  window.QNPitch.bottomBar.register('pitch', {
-    render: renderBottomBar
-  });
-
-  // 録音一覧パネル（アイコンバー→パネル）
-  window.QNPitch.panels.register('pitch-recordings-list', {
-    label: 'Recordings',
-    icon: '<path d="M4 6h16v2H4V6zm0 5h16v2H4v-2zm0 5h10v2H4v-2z"/>',
-    modes: ['pitch'],
-    render(panelBody) {
-      panelBody.innerHTML = '<div class="pitch-rec-list-scroll" id="pitchRecListScroll"></div>';
-      refreshRecList();
+  function initBottomBarButtons() {
+    const recBtn = document.getElementById('pitchRecBtn');
+    if (recBtn && !recBtn.dataset.bound) {
+      recBtn.dataset.bound = '1';
+      recBtn.addEventListener('click', () => {
+        if (recording) endRecording(); else beginRecording();
+      });
     }
-  });
+    const playBtn = document.getElementById('pitchPlayToggleBtn');
+    if (playBtn && !playBtn.dataset.bound) {
+      playBtn.dataset.bound = '1';
+      playBtn.addEventListener('click', () => {
+        if (!currentPlayback) return;
+        const audio = currentPlayback.audio;
+        if (audio.paused) { audio.play(); setPlayIcon(true); tickPlayback(); }
+        else { audio.pause(); setPlayIcon(false); }
+      });
+    }
+    const saveBtn = document.getElementById('pitchSaveBtn');
+    if (saveBtn && !saveBtn.dataset.bound) {
+      saveBtn.dataset.bound = '1';
+      saveBtn.addEventListener('click', handleSaveClick);
+    }
+    const clearBtn = document.getElementById('pitchClearBtn');
+    if (clearBtn && !clearBtn.dataset.bound) {
+      clearBtn.dataset.bound = '1';
+      clearBtn.addEventListener('click', async () => {
+        const ok = await window.QNPitch.recordings.openClearConfirmDialog();
+        if (!ok) return;
+        pitchTrack = [];
+        pendingRecording = null;
+        updateSaveBtnState();
+        if (currentPlayback) stopPlayback();
+        canvasWidth = PIXELS_PER_SEC * INITIAL_BUFFER_SEC;
+        setupSize();
+        redraw();
+      });
+    }
+    const pbCloseBtn = document.getElementById('pitchPbCloseBtn');
+    if (pbCloseBtn && !pbCloseBtn.dataset.bound) {
+      pbCloseBtn.dataset.bound = '1';
+      pbCloseBtn.addEventListener('click', stopPlayback);
+    }
+  }
+
+  function init() {
+    initMainArea();
+    initBottomBarButtons();
+  }
+  if (document.readyState === 'complete') {
+    init();
+  } else {
+    window.addEventListener('load', init);
+  }
 
   window.addEventListener('resize', () => {
     if (window.QNPitch.getMode && window.QNPitch.getMode() === 'pitch' && canvas) {
@@ -682,7 +582,19 @@ window.QNPitch = window.QNPitch || {};
     }
   });
 
+  window.addEventListener('qnpitch-mode-change', (e) => {
+    if (e.detail && e.detail.from === 'pitch') {
+      if (recording) endRecording();
+    }
+  });
+
   window.QNPitch.pitchMode = {
-    redraw
+    redraw,
+    startRecording: beginRecording,
+    stopRecording: endRecording,
+    isRecording: () => recording,
+    selectRecording,
+    getCurrentPlaybackId: () => currentPlayback ? currentPlayback.id : null,
+    initBottomBarButtons
   };
 })();

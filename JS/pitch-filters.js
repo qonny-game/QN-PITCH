@@ -5,9 +5,8 @@
 //
 // 【移植元】旧QNPITCH(app.js)の applyFilters / detectSustainedRegions /
 // isVibrato / detectDriftRegions / detectVibratoRegions / calcScore を
-// そのまま移植。設定値の読み書き（localStorage）もここに集約する。
-//
-// pitch-mode-pitch.js から window.QNPitch.filters として参照される。
+// そのまま移植。設定パネルのHTMLは、QNPLAYERの.control-card型
+// （style-core.cssから完全コピー）を使って構築する。
 // ============================================================
 
 window.QNPitch = window.QNPitch || {};
@@ -50,12 +49,9 @@ window.QNPitch = window.QNPitch || {};
     } catch (e) { /* ignore */ }
   }
 
-  // 設定に基づいてtrackをフィルタリングした「描画用」配列を作る。
-  // 元のtrack自体は変更しない。
   function applyFilters(track) {
     if (!track.length) return track;
 
-    // 1. 音量ゲート
     const rmsThreshold = filterSettings.rmsThreshold;
     let filtered = track.map(function (p) {
       if (p.voiced && rmsThreshold > 0 && (p.rms === undefined || p.rms < rmsThreshold)) {
@@ -64,7 +60,6 @@ window.QNPitch = window.QNPitch || {};
       return p;
     });
 
-    // 2. 急変スキップ
     const windowSec = filterSettings.jumpWindowMs / 1000;
     if (filterSettings.jumpSemitones > 0 && windowSec > 0) {
       filtered = filtered.map(function (p, i) {
@@ -81,7 +76,6 @@ window.QNPitch = window.QNPitch || {};
       });
     }
 
-    // 3. スパイク除去
     if (filterSettings.spikeRemoval) {
       filtered = filtered.map(function (p, i) {
         if (!p.voiced) return p;
@@ -103,8 +97,6 @@ window.QNPitch = window.QNPitch || {};
     return filtered;
   }
 
-  // 「同じノート(半音)を最低保持期間以上維持している区間」を検出する共通関数。
-  // ズレハイライト・ビブラート判定・スコア計算の全てがこれを土台にする。
   function detectSustainedRegions(track, minDurationSec) {
     if (!track.length) return [];
     const regions = [];
@@ -131,7 +123,6 @@ window.QNPitch = window.QNPitch || {};
     return regions;
   }
 
-  // 維持区間内が「ビブラート」かどうかを判定する。
   function isVibrato(track, startIdx, endIdx) {
     const pts = [];
     for (let k = startIdx; k <= endIdx; k++) {
@@ -191,7 +182,6 @@ window.QNPitch = window.QNPitch || {};
     return regions;
   }
 
-  // スコア計算：維持区間のうち、ビブラートを除いて平均ズレが閾値以内の割合(%)
   function calcScore(track) {
     const minDurationSec = filterSettings.pitchDriftDurationMs / 1000;
     const sustained = detectSustainedRegions(track, minDurationSec);
@@ -211,103 +201,68 @@ window.QNPitch = window.QNPitch || {};
     return Math.round((okCount / scoredRegions.length) * 100);
   }
 
-  // ==================== 設定パネル（アイコンバー→パネル） ====================
-  function renderFilterPanel(panelBody) {
-    panelBody.innerHTML =
-      '<div class="pitch-filters-panel">' +
-        '<div class="pitch-settings-row">' +
-          '<div class="pitch-settings-row-label">' +
-            '<span class="pitch-settings-row-title">急変スキップ</span>' +
-            '<span class="pitch-settings-row-desc">直近の短時間で大きく音程が動いた区間の線を描画しない</span>' +
+  // ==================== 設定パネル ====================
+  function renderFilterPanel() {
+    const box = document.getElementById('pitchFiltersBox');
+    if (!box) return;
+
+    box.innerHTML =
+      '<div class="control-list">' +
+        '<div class="control-card">' +
+          '<label>急変スキップ：時間窓 <span id="pitchJumpWindowValue" style="color:#fff;">' + filterSettings.jumpWindowMs + '</span> ms</label>' +
+          '<input type="range" id="pitchJumpWindowInput" min="0" max="500" step="10" value="' + filterSettings.jumpWindowMs + '">' +
+        '</div>' +
+        '<div class="control-card">' +
+          '<label>急変スキップ：音程変化量 <span id="pitchJumpSemitonesValue" style="color:#fff;">' + filterSettings.jumpSemitones + '</span> 半音</label>' +
+          '<input type="range" id="pitchJumpSemitonesInput" min="0" max="12" step="1" value="' + filterSettings.jumpSemitones + '">' +
+        '</div>' +
+        '<div class="control-card">' +
+          '<label>' +
+            'スパイク除去' +
+            '<button class="glow-switch control-effect-toggle" id="pitchSpikeToggle" role="switch" aria-checked="' + filterSettings.spikeRemoval + '"><span class="glow-switch-knob"></span></button>' +
+          '</label>' +
+        '</div>' +
+        '<div class="control-card">' +
+          '<label>音量ゲート：最低音量 <span id="pitchRmsThresholdValue" style="color:#fff;">' + filterSettings.rmsThreshold.toFixed(2) + '</span></label>' +
+          '<input type="range" id="pitchRmsThresholdInput" min="0" max="0.5" step="0.01" value="' + filterSettings.rmsThreshold + '">' +
+        '</div>' +
+        '<div class="control-card">' +
+          '<label>' +
+            '音程ズレハイライト' +
+            '<button class="glow-switch control-effect-toggle" id="pitchDriftToggle" role="switch" aria-checked="' + filterSettings.pitchDriftEnabled + '"><span class="glow-switch-knob"></span></button>' +
+          '</label>' +
+          '<div style="margin-top:10px;">' +
+            '<label style="font-size:var(--fs-small);color:var(--icon-muted);">最低保持期間 <span id="pitchDriftDurationValue" style="color:#fff;">' + filterSettings.pitchDriftDurationMs + '</span> ms</label>' +
+            '<input type="range" id="pitchDriftDurationInput" min="100" max="2000" step="50" value="' + filterSettings.pitchDriftDurationMs + '">' +
+          '</div>' +
+          '<div style="margin-top:10px;">' +
+            '<label style="font-size:var(--fs-small);color:var(--icon-muted);">平均ズレ閾値 <span id="pitchDriftCentsValue" style="color:#fff;">' + filterSettings.pitchDriftCents + '</span> ¢</label>' +
+            '<input type="range" id="pitchDriftCentsInput" min="1" max="50" step="1" value="' + filterSettings.pitchDriftCents + '">' +
           '</div>' +
         '</div>' +
-        '<div class="pitch-settings-field">' +
-          '<label class="pitch-settings-field-label">時間窓 <span class="pitch-settings-field-value" id="pitchJumpWindowValue">' + filterSettings.jumpWindowMs + '</span> ms</label>' +
-          '<input type="range" id="pitchJumpWindowInput" class="pitch-settings-slider" min="0" max="500" step="10" value="' + filterSettings.jumpWindowMs + '">' +
-        '</div>' +
-        '<div class="pitch-settings-field">' +
-          '<label class="pitch-settings-field-label">音程変化量 <span class="pitch-settings-field-value" id="pitchJumpSemitonesValue">' + filterSettings.jumpSemitones + '</span> 半音</label>' +
-          '<input type="range" id="pitchJumpSemitonesInput" class="pitch-settings-slider" min="0" max="12" step="1" value="' + filterSettings.jumpSemitones + '">' +
-        '</div>' +
-
-        '<div class="pitch-settings-divider"></div>' +
-
-        '<div class="pitch-settings-row">' +
-          '<div class="pitch-settings-row-label">' +
-            '<span class="pitch-settings-row-title">スパイク除去</span>' +
-            '<span class="pitch-settings-row-desc">前後と繋がらない孤立した単発の飛び値を除去する</span>' +
+        '<div class="control-card">' +
+          '<label>' +
+            'ビブラート検出' +
+            '<button class="glow-switch control-effect-toggle" id="pitchVibratoToggle" role="switch" aria-checked="' + filterSettings.vibratoEnabled + '"><span class="glow-switch-knob"></span></button>' +
+          '</label>' +
+          '<div style="margin-top:10px;">' +
+            '<label style="font-size:var(--fs-small);color:var(--icon-muted);">揺れ周期（下限） <span id="pitchVibMinRateValue" style="color:#fff;">' + filterSettings.vibratoMinRateHz.toFixed(1) + '</span> Hz</label>' +
+            '<input type="range" id="pitchVibMinRateInput" min="1" max="10" step="0.5" value="' + filterSettings.vibratoMinRateHz + '">' +
           '</div>' +
-          '<button type="button" class="pitch-settings-toggle" id="pitchSpikeToggle" role="switch" aria-checked="' + filterSettings.spikeRemoval + '"><span class="pitch-settings-toggle-knob"></span></button>' +
-        '</div>' +
-
-        '<div class="pitch-settings-divider"></div>' +
-
-        '<div class="pitch-settings-row">' +
-          '<div class="pitch-settings-row-label">' +
-            '<span class="pitch-settings-row-title">音量ゲート</span>' +
-            '<span class="pitch-settings-row-desc">これより小さい音量で検出されたピッチは無効点として扱う</span>' +
+          '<div style="margin-top:10px;">' +
+            '<label style="font-size:var(--fs-small);color:var(--icon-muted);">揺れ周期（上限） <span id="pitchVibMaxRateValue" style="color:#fff;">' + filterSettings.vibratoMaxRateHz.toFixed(1) + '</span> Hz</label>' +
+            '<input type="range" id="pitchVibMaxRateInput" min="1" max="12" step="0.5" value="' + filterSettings.vibratoMaxRateHz + '">' +
+          '</div>' +
+          '<div style="margin-top:10px;">' +
+            '<label style="font-size:var(--fs-small);color:var(--icon-muted);">最低揺れ幅 <span id="pitchVibMinCentsValue" style="color:#fff;">' + filterSettings.vibratoMinCents + '</span> ¢</label>' +
+            '<input type="range" id="pitchVibMinCentsInput" min="5" max="50" step="1" value="' + filterSettings.vibratoMinCents + '">' +
           '</div>' +
         '</div>' +
-        '<div class="pitch-settings-field">' +
-          '<label class="pitch-settings-field-label">最低音量 <span class="pitch-settings-field-value" id="pitchRmsThresholdValue">' + filterSettings.rmsThreshold.toFixed(2) + '</span> (RMS)</label>' +
-          '<input type="range" id="pitchRmsThresholdInput" class="pitch-settings-slider" min="0" max="0.5" step="0.01" value="' + filterSettings.rmsThreshold + '">' +
-        '</div>' +
-
-        '<div class="pitch-settings-divider"></div>' +
-
-        '<div class="pitch-settings-row">' +
-          '<div class="pitch-settings-row-label">' +
-            '<span class="pitch-settings-row-title">音程ズレハイライト</span>' +
-            '<span class="pitch-settings-row-desc">同じ音を一定期間以上保持している区間で、平均セントのズレが大きい場合に背景を赤くする</span>' +
-          '</div>' +
-          '<button type="button" class="pitch-settings-toggle" id="pitchDriftToggle" role="switch" aria-checked="' + filterSettings.pitchDriftEnabled + '"><span class="pitch-settings-toggle-knob"></span></button>' +
-        '</div>' +
-        '<div class="pitch-settings-field">' +
-          '<label class="pitch-settings-field-label">最低保持期間 <span class="pitch-settings-field-value" id="pitchDriftDurationValue">' + filterSettings.pitchDriftDurationMs + '</span> ms</label>' +
-          '<input type="range" id="pitchDriftDurationInput" class="pitch-settings-slider" min="100" max="2000" step="50" value="' + filterSettings.pitchDriftDurationMs + '">' +
-        '</div>' +
-        '<div class="pitch-settings-field">' +
-          '<label class="pitch-settings-field-label">平均ズレ閾値 <span class="pitch-settings-field-value" id="pitchDriftCentsValue">' + filterSettings.pitchDriftCents + '</span> ¢</label>' +
-          '<input type="range" id="pitchDriftCentsInput" class="pitch-settings-slider" min="1" max="50" step="1" value="' + filterSettings.pitchDriftCents + '">' +
-        '</div>' +
-
-        '<div class="pitch-settings-divider"></div>' +
-
-        '<div class="pitch-settings-row">' +
-          '<div class="pitch-settings-row-label">' +
-            '<span class="pitch-settings-row-title">ビブラート検出</span>' +
-            '<span class="pitch-settings-row-desc">規則的に音程が揺れている区間を意図的なビブラートとみなし、ズレハイライトの対象から除外して紫色で表示する</span>' +
-          '</div>' +
-          '<button type="button" class="pitch-settings-toggle" id="pitchVibratoToggle" role="switch" aria-checked="' + filterSettings.vibratoEnabled + '"><span class="pitch-settings-toggle-knob"></span></button>' +
-        '</div>' +
-        '<div class="pitch-settings-field">' +
-          '<label class="pitch-settings-field-label">揺れ周期（下限） <span class="pitch-settings-field-value" id="pitchVibMinRateValue">' + filterSettings.vibratoMinRateHz.toFixed(1) + '</span> Hz</label>' +
-          '<input type="range" id="pitchVibMinRateInput" class="pitch-settings-slider" min="1" max="10" step="0.5" value="' + filterSettings.vibratoMinRateHz + '">' +
-        '</div>' +
-        '<div class="pitch-settings-field">' +
-          '<label class="pitch-settings-field-label">揺れ周期（上限） <span class="pitch-settings-field-value" id="pitchVibMaxRateValue">' + filterSettings.vibratoMaxRateHz.toFixed(1) + '</span> Hz</label>' +
-          '<input type="range" id="pitchVibMaxRateInput" class="pitch-settings-slider" min="1" max="12" step="0.5" value="' + filterSettings.vibratoMaxRateHz + '">' +
-        '</div>' +
-        '<div class="pitch-settings-field">' +
-          '<label class="pitch-settings-field-label">最低揺れ幅 <span class="pitch-settings-field-value" id="pitchVibMinCentsValue">' + filterSettings.vibratoMinCents + '</span> ¢</label>' +
-          '<input type="range" id="pitchVibMinCentsInput" class="pitch-settings-slider" min="5" max="50" step="1" value="' + filterSettings.vibratoMinCents + '">' +
-        '</div>' +
-
-        '<div class="pitch-settings-divider"></div>' +
-
-        '<div class="pitch-settings-row">' +
-          '<div class="pitch-settings-row-label">' +
-            '<span class="pitch-settings-row-title">スコア判定</span>' +
-            '<span class="pitch-settings-row-desc">維持区間の平均ズレがこの範囲以内なら「適正」として録音のスコア(%)に加算する</span>' +
-          '</div>' +
-        '</div>' +
-        '<div class="pitch-settings-field">' +
-          '<label class="pitch-settings-field-label">許容ズレ閾値 <span class="pitch-settings-field-value" id="pitchScoreCentsValue">' + filterSettings.scoreCentsThreshold + '</span> ¢</label>' +
-          '<input type="range" id="pitchScoreCentsInput" class="pitch-settings-slider" min="1" max="50" step="1" value="' + filterSettings.scoreCentsThreshold + '">' +
-        '</div>' +
-
-        '<div class="pitch-settings-btn-row">' +
-          '<button type="button" class="pitch-dialog-btn" id="pitchFilterResetBtn">Reset</button>' +
+        '<div class="control-card">' +
+          '<label>スコア判定：許容ズレ閾値 <span id="pitchScoreCentsValue" style="color:#fff;">' + filterSettings.scoreCentsThreshold + '</span> ¢' +
+            '<button class="mini-reset-btn" id="pitchFilterResetBtn" title="Reset all filters" style="margin-left:auto;">RESET</button>' +
+          '</label>' +
+          '<input type="range" id="pitchScoreCentsInput" min="1" max="50" step="1" value="' + filterSettings.scoreCentsThreshold + '">' +
         '</div>' +
       '</div>';
 
@@ -322,74 +277,91 @@ window.QNPitch = window.QNPitch || {};
         filterSettings[key] = !filterSettings[key];
         el.setAttribute('aria-checked', String(filterSettings[key]));
         saveFilterSettings();
-        if (typeof window.QNPitch.pitchMode?.redraw === 'function') window.QNPitch.pitchMode.redraw();
+        redrawIfNeeded();
       });
+    }
+    function redrawIfNeeded() {
+      if (window.QNPitch.pitchMode && typeof window.QNPitch.pitchMode.redraw === 'function') {
+        window.QNPitch.pitchMode.redraw();
+      }
     }
 
     onChange('pitchJumpWindowInput', (e) => {
       filterSettings.jumpWindowMs = parseInt(e.target.value, 10);
       document.getElementById('pitchJumpWindowValue').textContent = filterSettings.jumpWindowMs;
       saveFilterSettings();
-      window.QNPitch.pitchMode?.redraw();
+      redrawIfNeeded();
     });
     onChange('pitchJumpSemitonesInput', (e) => {
       filterSettings.jumpSemitones = parseInt(e.target.value, 10);
       document.getElementById('pitchJumpSemitonesValue').textContent = filterSettings.jumpSemitones;
       saveFilterSettings();
-      window.QNPitch.pitchMode?.redraw();
+      redrawIfNeeded();
     });
     onToggle('pitchSpikeToggle', 'spikeRemoval');
     onChange('pitchRmsThresholdInput', (e) => {
       filterSettings.rmsThreshold = parseFloat(e.target.value);
       document.getElementById('pitchRmsThresholdValue').textContent = filterSettings.rmsThreshold.toFixed(2);
       saveFilterSettings();
-      window.QNPitch.pitchMode?.redraw();
+      redrawIfNeeded();
     });
     onToggle('pitchDriftToggle', 'pitchDriftEnabled');
     onChange('pitchDriftDurationInput', (e) => {
       filterSettings.pitchDriftDurationMs = parseInt(e.target.value, 10);
       document.getElementById('pitchDriftDurationValue').textContent = filterSettings.pitchDriftDurationMs;
       saveFilterSettings();
-      window.QNPitch.pitchMode?.redraw();
+      redrawIfNeeded();
     });
     onChange('pitchDriftCentsInput', (e) => {
       filterSettings.pitchDriftCents = parseInt(e.target.value, 10);
       document.getElementById('pitchDriftCentsValue').textContent = filterSettings.pitchDriftCents;
       saveFilterSettings();
-      window.QNPitch.pitchMode?.redraw();
+      redrawIfNeeded();
     });
     onToggle('pitchVibratoToggle', 'vibratoEnabled');
     onChange('pitchVibMinRateInput', (e) => {
       filterSettings.vibratoMinRateHz = parseFloat(e.target.value);
       document.getElementById('pitchVibMinRateValue').textContent = filterSettings.vibratoMinRateHz.toFixed(1);
       saveFilterSettings();
-      window.QNPitch.pitchMode?.redraw();
+      redrawIfNeeded();
     });
     onChange('pitchVibMaxRateInput', (e) => {
       filterSettings.vibratoMaxRateHz = parseFloat(e.target.value);
       document.getElementById('pitchVibMaxRateValue').textContent = filterSettings.vibratoMaxRateHz.toFixed(1);
       saveFilterSettings();
-      window.QNPitch.pitchMode?.redraw();
+      redrawIfNeeded();
     });
     onChange('pitchVibMinCentsInput', (e) => {
       filterSettings.vibratoMinCents = parseInt(e.target.value, 10);
       document.getElementById('pitchVibMinCentsValue').textContent = filterSettings.vibratoMinCents;
       saveFilterSettings();
-      window.QNPitch.pitchMode?.redraw();
+      redrawIfNeeded();
     });
     onChange('pitchScoreCentsInput', (e) => {
       filterSettings.scoreCentsThreshold = parseInt(e.target.value, 10);
       document.getElementById('pitchScoreCentsValue').textContent = filterSettings.scoreCentsThreshold;
       saveFilterSettings();
-      window.QNPitch.pitchMode?.redraw();
+      redrawIfNeeded();
     });
 
-    document.getElementById('pitchFilterResetBtn').addEventListener('click', () => {
-      filterSettings = Object.assign({}, FILTER_DEFAULTS);
-      saveFilterSettings();
-      renderFilterPanel(panelBody);
-      window.QNPitch.pitchMode?.redraw();
-    });
+    const resetBtn = document.getElementById('pitchFilterResetBtn');
+    if (resetBtn) {
+      resetBtn.addEventListener('click', () => {
+        filterSettings = Object.assign({}, FILTER_DEFAULTS);
+        saveFilterSettings();
+        renderFilterPanel();
+        redrawIfNeeded();
+      });
+    }
+  }
+
+  function init() {
+    renderFilterPanel();
+  }
+  if (document.readyState === 'complete') {
+    init();
+  } else {
+    window.addEventListener('load', init);
   }
 
   window.QNPitch.filters = {
@@ -400,12 +372,4 @@ window.QNPitch = window.QNPitch || {};
     detectVibratoRegions,
     calcScore
   };
-
-  // アイコンバー→パネル登録（PITCHMODEのみ表示）
-  window.QNPitch.panels.register('pitch-filters', {
-    label: 'Filters',
-    icon: '<path d="M4.25 5.61C6.27 8.2 10 13 10 13v6c0 .55.45 1 1 1h2c.55 0 1-.45 1-1v-6s3.72-4.8 5.74-7.39A.998.998 0 0 0 18.95 4H5.04c-.83 0-1.3.95-.79 1.61z"/>',
-    modes: ['pitch'],
-    render: renderFilterPanel
-  });
 })();

@@ -1,0 +1,331 @@
+/* ============================================================
+   style-pcv2-panels.css
+   PC v2の中央パネル（#pcV2PanelBody）に表示される中身のスタイル。
+   Control/Sensitivity/Filters/Recordings/Display・Color/Keyboardの
+   各パネルコンテンツ、パネル見出し（#pcV2PanelHeader）、右下
+   フローティングボタン（#pcV2PanelFab）。
+
+   外枠（アイコンバー・波形エリア・ヘッダーナビ・3カラムグリッド・
+   SP幅の縦積みレイアウト）はstyle-layout-pc-v2.css側。
+   ============================================================ */
+
+
+#pcV2PanelHeader {
+  padding: 14px 16px 14px 20px;
+  border-bottom: 1px solid var(--border-subtle);
+  font-family: var(--font-display, 'Instrument Sans'), sans-serif;
+  font-size: var(--fs-title);
+  font-weight: 600;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+  color: var(--icon-muted);
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+
+/* パネル見出し（CONTROL/SENSITIVITY/FILTERS等）の文字は、
+   Colorパネルで選んだテーマ色（--accent-primary）にする。 */
+.pcv2-panel-header-title {
+  display: block;
+  color: var(--accent-primary);
+}
+
+
+/* フローティングアクションボタン(#pcV2PanelFab)共通スタイル。
+   Recordings(text)パネルの右下に、縦2段で固定表示する
+   （上段=Delete、下段=EDIT⇔OK）。個別のボタン用クラスは、JS側の
+   個別制御（文字切り替え・activeクラス付け外し等）のフックとしてのみ
+   残し、見た目のスタイルはここに集約する。 */
+#pcV2PanelFab {
+  position: absolute;
+  right: 20px;
+  bottom: 20px;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 10px;
+  z-index: 5;
+  pointer-events: none;
+}
+
+
+/* 上段：Add系ボタンのグループ（QNPITCHでは現状空。§0-2参照）。
+   編集モード中はグループごと非表示にしてDeleteと排他表示する。 */
+#pcV2PanelFab .pcv2-fab-addgroup {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 10px;
+}
+
+
+.panel-fab-btn {
+  pointer-events: auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 12px 22px;
+  border-radius: var(--radius-pill);
+  color: var(--text-pure-white, #fff);
+  cursor: pointer;
+  background: var(--accent-primary);
+  border: none;
+  flex-shrink: 0;
+  font-family: var(--font-display, 'Instrument Sans'), sans-serif;
+  font-size: var(--fs-btn-primary);
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
+  transition: background 0.15s ease, transform 0.1s ease;
+}
+
+
+.panel-fab-btn svg {
+  width: 17px;
+  height: 17px;
+  fill: currentColor;
+  flex-shrink: 0;
+}
+
+
+.panel-fab-btn:hover {
+  background: var(--accent-hover-1);
+}
+
+
+.panel-fab-btn:active {
+  transform: scale(0.96);
+}
+
+
+/* EDITボタンのみ、編集モード中(.active、表示はOK)は見分けがつくよう
+   「白地＋テーマ色の文字」に反転する（v2.16.4〜、通常時がテーマ色の
+   塗りになったため。Add系・Fullscreenボタンはactive状態を持たないので、
+   実質panel-edit-btnにしか適用されない）。 */
+.panel-fab-btn.active,
+.panel-fab-btn.active:hover {
+  background: var(--text-pure-white, #fff);
+  color: var(--accent-primary);
+}
+
+
+/* Deleteボタン（上段、編集モード中のみ表示・JS側のtoggleEditModeが
+   display制御）。危険操作のため他のFABボタンとは異なる赤系にする。
+   初期状態はdisabled（何も選択していない）ため、そのグレーアウトの
+   見た目も合わせて定義する。 */
+.panel-fab-delete-btn {
+  display: none;
+  background: var(--danger, #ef4444);
+}
+
+
+.panel-fab-delete-btn:hover {
+  background: #dc2626;
+}
+
+
+.panel-fab-delete-btn:disabled {
+  background: rgba(239, 68, 68, 0.35);
+  cursor: not-allowed;
+}
+
+
+
+/* 一括削除確定時、実際にデータを消す前にこのクラスを付けて一瞬
+   フェードアウト＋わずかに縮小させる（削除ボタンを押した瞬間に即座に
+   消えると「消された」感が薄いとの指摘を受けた対応）。
+   player-ui-pc-v2.js側のdeleteSelectedItems()がこのクラスを付けてから
+   FADE_MS(260ms)待ち、実データの削除・再描画(performDelete)を行う。 */
+.pcv2-row-deleting {
+  opacity: 0;
+  transform: scale(0.97);
+  transition: opacity 0.26s ease, transform 0.26s ease;
+  pointer-events: none;
+}
+
+
+/* ヘッダー内の「選択項目を削除」ボタン。編集モード中のみ表示する。
+   表示制御はtoggleEditMode()側でJSから直接style.displayを設定する
+   （#pcV2PanelHeaderは#pcV2PanelBodyより前にあるDOM順序のため、
+   CSSの兄弟結合子では実現できない）。 */
+#pcV2PanelBody {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 16px 20px;
+}
+
+
+/* QNPITCHのmarkers=SensitivityパネルとplaylistFiltersパネルの中身は
+   .control-card型（左右paddingを持たない）のため、ベースの
+   #pcV2PanelBody（16px 20px）のpaddingをそのまま使う。 */
+#pcV2PanelBody.pcv2-panel-playlist,
+#pcV2PanelBody.pcv2-panel-markers {
+  padding: 16px 20px;
+}
+
+
+/* 【QNPITCH向け上書き】上記に伴い、QNPLAYERのフローティングボタン用
+   スクロール終端余白（140px）もQNPITCHでは使わないため無効化する。 */
+#pcV2PanelBody.pcv2-panel-playlist::after,
+#pcV2PanelBody.pcv2-panel-markers::after {
+  content: none;
+  display: none;
+  height: 0;
+}
+
+
+/* Backup/Importパネル（旧QNPLAYERのファイル/データバックアップ機能）はQNPITCHでは使用しないため削除済み（掃除）。 */
+
+
+
+
+/* パネル内に移植されたmobile-tab-panel/export-modal中身は常時表示にする
+   （タブ切替・モーダル開閉のCSSクラスに関わらず、パネルとして直接見せるため）。
+   .mobile-tab-panel自体はSP版/旧PC版向けの独立した箱デザイン
+   （背景色・枠線・角丸・padding）を持つため、PC v2ではパネル本体
+   (#pcV2PanelBody)側のpaddingをそのまま活かすようすべてリセットする。 */
+#pcV2PanelBody .mobile-tab-panel {
+  display: block !important;
+  width: auto;
+  background: none;
+  border: none;
+  border-radius: 0;
+  padding: 0;
+}
+
+
+#pcV2PanelBody .markers-heading-row {
+  display: none !important;
+}
+
+
+/* Exportパネル：モーダル用のflex/gap/paddingをリセットし、
+   見出し付きの箱＋罫線区切りのデザインに変える（Rangeの箱、Effectsの箱…と
+   セクションごとに区切り線で分ける方針）。padding/gapはモーダル時の値を
+   打ち消して、#pcV2PanelBody側のpadding(16px 20px)をそのまま活かす。 */
+#pcV2PanelBody .export-section {
+  display: block;
+  padding: 26px 0;
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+
+#pcV2PanelBody .export-section:first-child {
+  padding-top: 0;
+}
+
+
+#pcV2PanelBody .export-section:last-of-type {
+  border-bottom: none;
+}
+
+
+#pcV2PanelBody .export-section-label {
+  display: block;
+  margin-bottom: 10px;
+  font-size: var(--fs-heading);
+}
+
+
+
+
+
+/* Exportボタンをモック準拠の単色・幅いっぱいのフラットボタンに変更 */
+#pcV2PanelBody .export-run-btn {
+  width: 100%;
+  padding: 12px;
+  background: var(--accent-primary);
+  /* 【v2.15.1】他のボタン（ADD AUDIO等の.panel-fab-btn）に合わせ、左右を
+     完全な半円にする。 */
+  border-radius: var(--radius-pill);
+  box-shadow: none;
+}
+
+
+#pcV2PanelBody .export-cancel-btn {
+  border-radius: var(--radius-pill);
+}
+
+
+#pcV2PanelBody .export-run-btn:hover:not(:disabled) {
+  background: var(--accent-hover-1);
+  box-shadow: none;
+  transform: none;
+}
+
+
+#pcV2PanelBody .export-filename-input {
+  background: none;
+  border: 1px solid var(--border-subtle);
+}
+
+
+#pcV2PanelBody .export-filename-input:focus {
+  background: none;
+}
+
+
+#pcV2PanelBody.pcv2-panel-keyboard .qn-menu-section,
+#pcV2PanelBody.pcv2-panel-color .qn-menu-section {
+  border-bottom: none;
+  padding-bottom: 0;
+}
+
+
+#pcV2PanelBody.pcv2-panel-keyboard .qn-menu-section-label,
+#pcV2PanelBody.pcv2-panel-color .qn-menu-section-label {
+  display: none;
+}
+
+
+/* パネル内のリストが増えて縦スクロールが発生した場合、ブラウザ既定の
+   スクロールバーではなく、ダークテーマに馴染む細いスクロールバーに
+   する（Webkit系）。Firefox向けはscrollbar-color/scrollbar-widthで
+   同様の見た目に揃える。 */
+#pcV2PanelBody {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 255, 255, 0.18) transparent;
+}
+
+
+#pcV2PanelBody::-webkit-scrollbar {
+  width: 8px;
+}
+
+
+#pcV2PanelBody::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+
+#pcV2PanelBody::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.14);
+  border-radius: 4px;
+}
+
+
+#pcV2PanelBody::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.24);
+}
+
+
+/* Textパネル：入力欄をパネルの表示限界(残り高さ)いっぱいまで広げる。
+   #pcV2PanelBody自体をflexコンテナにし、.mobile-tab-panel(textBody)と
+   その中のtextareaを両方flex:1で伸ばす。 */
+#pcV2PanelBody.pcv2-panel-text {
+  display: flex;
+  flex-direction: column;
+}
+
+
+#pcV2PanelBody.pcv2-panel-text .mobile-tab-panel[data-tab-panel="text"] {
+  display: flex !important;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+}

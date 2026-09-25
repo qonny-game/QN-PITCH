@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>QNPITCH</title>
 <link rel="icon" type="image/x-icon" href="favicon/favicon.ico">
 <link rel="icon" type="image/png" sizes="16x16" href="favicon/favicon-16x16.png">
@@ -12,29 +12,31 @@
 <link rel="icon" type="image/png" sizes="512x512" href="favicon/android-chrome-512x512.png">
 
 <link rel="stylesheet" href="CSS/style-core.css">
-<link rel="stylesheet" href="CSS/style-layout-pc-v2.css">
 <link rel="stylesheet" href="CSS/style-mode-tuner.css">
 <link rel="stylesheet" href="CSS/style-mode-pitch.css">
 <link rel="stylesheet" href="CSS/style-filters.css">
 <link rel="stylesheet" href="CSS/style-recordings.css">
+<link rel="stylesheet" href="CSS/style-layout-pc-v2.css">
+<link rel="stylesheet" href="CSS/style-pcv2-panels.css">
 <link rel="stylesheet" href="CSS/style-auth.css">
 <link rel="stylesheet" href="CSS/style-theme.css">
 <!-- style-metronome.css：内蔵メトロノームは実装後回し（md/AI_ASSISTANT_PROJECT_CONTEXT.md §0-4）。
-     ファイルの雛形はJS/CSSフォルダに用意済みだが、着手時にここへlinkタグを追加する。 -->
-
+     着手時にここへlinkタグを追加する。 -->
 <script>
   // アプリバージョンの一元管理（QNPLAYERと同じ方式）。
-  window.QN_APP_VERSION = "1.0.0";
+  window.QN_APP_VERSION = "1.0.5";
   document.title = "QNPITCH " + window.QN_APP_VERSION;
 
   window.QN_CURRENT_APP = "qnpitch";
-  // キーボードショートカットは実装後回し。定義したくなったらここに追加する。
+  // キーボードショートカットは実装後回し（§0-2）。定義したくなったら
+  // QNPLAYERと同じ形（{ key, action }の配列）でここに追加する。
   // window.QN_SHORTCUTS = [ ... ];
 </script>
 </head>
 <body>
 
-<!-- 起動時スプラッシュ -->
+<!-- 起動時スプラッシュ（QNPLAYERと完全同一仕様）。ロゴ＋Verのみの表紙。
+     最短表示時間の経過後に自動でフェードアウトする。 -->
 <div id="splashOverlay">
   <div id="splashLogo"><span id="splashLogoQN">QN</span>PITCH</div>
   <div id="splashVersion">v</div>
@@ -43,24 +45,85 @@
   document.getElementById("splashVersion").textContent = "v" + window.QN_APP_VERSION;
 </script>
 <script>
-  setTimeout(() => {
+  // QNPITCHには「IndexedDBからプレイリスト復元」のような重い初期化
+  // 処理がないため、window.onload後、最短表示時間だけ待ってから
+  // フェードアウトする。
+  window.addEventListener("load", () => {
+    setTimeout(hideSplashOverlay, 1400);
+  });
+  // セーフティタイマー：何らかの理由でwindow.onload側の処理が
+  // 走らなかった場合でも、5秒後には必ずスプラッシュを消す。
+  setTimeout(hideSplashOverlay, 5000);
+
+  function hideSplashOverlay() {
     const splash = document.getElementById("splashOverlay");
-    if (splash && splash.style.display !== "none") {
-      splash.classList.add("splash-fade-out");
-      setTimeout(() => { splash.style.display = "none"; }, 550);
-    }
-  }, 5000);
+    if (!splash || splash.style.display === "none") return;
+    splash.classList.add("splash-fade-out");
+    setTimeout(() => { splash.style.display = "none"; }, 550);
+  }
 </script>
 
 <div id="appHeader">
-  <!-- カラーテーマ切替・ショートカット一覧のハンバーガーメニュー用マウント先。
-       中身はpitch-theme.js実装時にQNPLAYERのplayer-theme.js方式を踏襲して構築する。 -->
-  <div id="qnMenuMount"></div>
+  <!-- ============================================================
+       カラーテーマ切替・Keyboard Shortcuts一覧のハンバーガーメニュー。
+       元はQNシリーズ共通の配布ファイル（qn-menu.js/css/html、他アプリが
+       fetchして読み込む仕組み）だったが、QNPLAYER単体リリースにあたり
+       配布の仕組み・他アプリへの遷移リンク（旧SECTION 1）は不要になった
+       ため撤去し、QNPLAYER専用のファイル（JS/player-theme.js、
+       CSS/style-theme.css）としてこちらへ統合した。
+       Section（Keyboard Shortcuts）は、window.QN_SHORTCUTSが未定義の
+       場合、player-theme.js側でdata-qn-section="shortcuts"のブロック
+       ごと非表示にする。 ============================================================ -->
+  <div id="qnMenuMount">
+    <div class="qn-menu-wrapper">
+      <button id="qnMenuBtn" title="Theme & Shortcuts">
+        <svg viewBox="0 0 24 24"><path d="M3 6h18v2H3V6zm0 5h18v2H3v-2zm0 5h18v2H3v-2z"/></svg>
+      </button>
 
+      <div class="qn-menu-popup" id="qnMenuPopup">
+
+        <!-- Color Theme Selector & Glow Switch -->
+        <div class="qn-menu-section" data-qn-section="theme">
+          <span class="qn-menu-section-label">Color Theme</span>
+          <!-- スウォッチはplayer-theme.js側のQN_THEMES配列(42色)から動的生成される。
+               テーマを追加・編集する時はplayer-theme.js内のQN_THEMESだけを直せばよく、
+               このHTMLやstyle-theme.css側の個別記述を編集する必要はない。 -->
+          <div class="qn-theme-swatches" id="qnThemeSwatches"></div>
+          <div class="qn-glow-toggle-row">
+            <span class="qn-glow-toggle-label">Glow current color</span>
+            <button id="qnGlowToggleBtn" class="qn-glow-switch" role="switch" aria-checked="false" title="Fade the current color in and out">
+              <span class="qn-glow-switch-knob"></span>
+            </button>
+          </div>
+        </div>
+
+        <!-- Keyboard Shortcuts Table (hidden if window.QN_SHORTCUTS is not defined) -->
+        <div class="qn-menu-section" data-qn-section="shortcuts" id="qnShortcutsSection">
+          <span class="qn-menu-section-label">Keyboard Shortcuts</span>
+          <table class="qn-shortcut-table" id="qnShortcutsTable">
+            <thead>
+              <tr><th>Action</th><th>Key</th></tr>
+            </thead>
+            <tbody id="qnShortcutsTbody">
+              <!-- player-theme.js が window.QN_SHORTCUTS の内容でここを組み立てる -->
+            </tbody>
+          </table>
+        </div>
+
+      </div>
+    </div>
+  </div>
   <h1 id="appLogo"><span id="appLogoQN">QN</span>PITCH <span id="appVersion">v</span></h1>
   <script>
     document.getElementById("appVersion").textContent = "v" + window.QN_APP_VERSION;
   </script>
+
+  <!-- マイクON/OFF（共通部分）。TUNERMODEのMic Tuner起動/停止と、
+       PITCHMODEの録音(REC)の両方を、今開いているモードに応じて
+       このボタン1つで制御する（標準実装ルール）。 -->
+  <button type="button" id="pitchHeaderMicBtn" title="Mic ON/OFF">
+    <svg viewBox="0 0 24 24"><path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3zm5-3c0 2.76-2.24 5-5 5s-5-2.24-5-5H5c0 3.53 2.61 6.43 6 6.92V21h2v-3.08c3.39-.49 6-3.39 6-6.92h-2z"/></svg>
+  </button>
 
   <!-- ヘッダー右：TUNER/PITCH MODE切り替えボタン（QNPITCH固有、QNPLAYERには存在しない）。
        md/AI_ASSISTANT_PROJECT_CONTEXT.md §0-2参照：将来「PLAYER/TUNER/PITCH」の
@@ -70,66 +133,261 @@
     <button type="button" class="pitch-mode-btn" data-mode="pitch">PITCH</button>
   </div>
 
-  <!-- Firebase Authentication（Googleログイン）UI。
-       pitch-auth.js（player-auth.jsを移植、Firebaseプロジェクトは
-       QNPLAYERと同一）が制御する。DOM構造・ID命名はQNPLAYERと共通
-       （§0-2：ログイン・FREE/PREMIUM判定はQNPLAYERと共通化する方針）。 -->
-  <div id="authContainer">
-    <button id="btnLoginGoogle" title="Googleでログイン">
-      <svg viewBox="0 0 24 24"><path fill="#fff" d="M21.35 11.1h-9.17v2.73h6.51c-.33 3.81-3.5 5.44-6.5 5.44C8.36 19.27 5 16.25 5 12c0-4.1 3.2-7.27 7.2-7.27 3.09 0 4.9 1.97 4.9 1.97L19 4.72S16.56 2 12.1 2C6.42 2 2.03 6.8 2.03 12c0 5.05 4.13 10 10.22 10 5.35 0 9.25-3.67 9.25-9.09 0-1.15-.15-1.81-.15-1.81z"/></svg>
-      <span>Googleでログイン</span>
+
+
+
+
+
+
+
+
+<!-- Firebase Authentication（Googleログイン）UI -->
+<div id="authContainer">
+  <!-- 未ログイン時：Googleログインボタン -->
+  <button id="btnLoginGoogle" title="Googleでログイン">
+    <svg viewBox="0 0 24 24"><path fill="#fff" d="M21.35 11.1h-9.17v2.73h6.51c-.33 3.81-3.5 5.44-6.5 5.44C8.36 19.27 5 16.25 5 12c0-4.1 3.2-7.27 7.2-7.27 3.09 0 4.9 1.97 4.9 1.97L19 4.72S16.56 2 12.1 2C6.42 2 2.03 6.8 2.03 12c0 5.05 4.13 10 10.22 10 5.35 0 9.25-3.67 9.25-9.09 0-1.15-.15-1.81-.15-1.81z"/></svg>
+  </button>
+
+  <!-- ログイン時：アバターアイコン ＆ ドロップダウンポップアップ -->
+  <div id="userInfo" style="display:none;">
+    <!-- アイコンボタン（クリックでドロップダウンを開閉） -->
+    <button id="userAvatarBtn" title="アカウントメニュー">
+      <img id="userPhoto" src="" alt="User Photo">
     </button>
 
-    <div id="userInfo" style="display:none;">
-      <button id="userAvatarBtn" title="アカウントメニュー">
-        <img id="userPhoto" src="" alt="User Photo">
-      </button>
-
-      <div id="userDropdown" class="user-dropdown">
-        <div class="user-dropdown-header">
-          <span id="userName">User Name</span>
+    <!-- ポップアップメニュー（デフォルト非表示） -->
+    <div id="userDropdown" class="user-dropdown">
+      <div class="user-dropdown-header">
+        <span id="userName">User Name</span>
+      </div>
+      <div class="user-dropdown-body">
+        <div class="user-dropdown-item">
+          <span class="user-dropdown-label">プラン</span>
+          <span id="userPlanBadge" class="sw-header-plan-badge">FREE</span>
         </div>
-        <div class="user-dropdown-body">
-          <div class="user-dropdown-item">
-            <span class="user-dropdown-label">プラン</span>
-            <span id="userPlanBadge" class="sw-header-plan-badge">FREE</span>
-          </div>
-          <div class="user-dropdown-item" id="userPlanRemainingRow" style="display:none;">
-            <span class="user-dropdown-label">残り</span>
-            <span id="userPlanRemaining" class="user-dropdown-val"></span>
-          </div>
-          <div class="user-dropdown-item" id="userPlanEndDateRow" style="display:none;">
-            <span class="user-dropdown-label">利用終了日</span>
-            <span id="userPlanEndDate" class="user-dropdown-val"></span>
-          </div>
+        <!-- monthly/yearly契約中は残り時間(dd日hh:mm形式)、Ad(広告視聴による時限解除)中は
+             残り時間(HH時間MM分形式)を表示。それ以外(FREE/Lifetime)は非表示(player-shareware.js側で制御)。 -->
+        <div class="user-dropdown-item" id="userPlanRemainingRow" style="display:none;">
+          <span class="user-dropdown-label">残り</span>
+          <span id="userPlanRemaining" class="user-dropdown-val"></span>
         </div>
-        <div class="user-dropdown-footer">
-          <button id="swUpgradeBtn" title="Upgrade to Premium">UPGRADE</button>
-          <button id="btnCancelSubscription" style="display:none;">解約する</button>
-          <button id="btnLogout">
-            <svg viewBox="0 0 24 24"><path fill="currentColor" d="M17 7l-1.41 1.41L17.17 10H9v2h8.17l-1.58 1.58L17 15l4-4zM5 5h7V3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h7v-2H5V5z"/></svg>
-            <span>ログアウト</span>
-          </button>
+        <!-- monthly/yearly契約中で、かつ既に解約手続き済み(cancelAtPeriodEnd=true)の場合のみ表示。
+             「このまま何もしなければ、この日付で無料版に戻る」ことを明示する行(player-shareware.js側で制御)。 -->
+        <div class="user-dropdown-item" id="userPlanEndDateRow" style="display:none;">
+          <span class="user-dropdown-label">利用終了日</span>
+          <span id="userPlanEndDate" class="user-dropdown-val"></span>
         </div>
+      </div>
+      <div class="user-dropdown-footer">
+        <!-- Premiumアップグレード導線。押すとアンロックモーダル(4プランカード)を直接開く。 -->
+        <button id="swUpgradeBtn" title="Upgrade to Premium">UPGRADE</button>
+        <!-- monthly/yearly契約中のみ表示。Stripe Customer Portalへ遷移する。
+             通常時は「解約する」→ Customer Portalの解約画面。
+             既に解約手続き済み(cancelAtPeriodEnd=true)の場合は「サブスクを続ける」
+             に文言を変える（Customer Portal側に「続ける」ボタンがあり、そこへ
+             同じ遷移で導く。player-shareware.js側で文言・class・遷移先の
+             出し分けを制御）。 -->
+        <button id="btnCancelSubscription" style="display:none;">解約する</button>
+        <button id="btnLogout">
+          <svg viewBox="0 0 24 24"><path fill="currentColor" d="M17 7l-1.41 1.41L17.17 10H9v2h8.17l-1.58 1.58L17 15l4-4zM5 5h7V3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h7v-2H5V5z"/></svg>
+          <span>ログアウト</span>
+        </button>
       </div>
     </div>
   </div>
 </div>
+  
 
-<!-- PC v2シェル（#pcV2Root以下）はpitch-ui-pc-v2.jsがここに動的に構築する。
-     QNPLAYERと異なり、QNPITCHには移植元となる旧SP版マークアップが
-     存在しないため、.app-container相当の静的HTMLは置かない
-     （md/AI_ASSISTANT_PROJECT_CONTEXT.md §0-2参照）。 -->
 
-<!-- 各種モーダル（フィルタ設定・KEY&DRONE・録音一覧・リネーム等）は
-     実装時にここへ追加していく。 -->
+
+
+
+</div>
+
+<div class="app-container">
+  <!-- TUNERMODE用メインエリア。data-pitch-mode属性で表示/非表示を
+       CSS側が制御する（pitch-ui-pc-v2.js側のsetMode()が該当セクション
+       のhidden属性を切り替える）。
+       【v1.0.1】QNPLAYER由来の.top-controls/.time-controls-row枠は
+       未使用のまま画面高さを圧迫していたため撤去（ユーザー指示：
+       「下部フッターは撤去、PLAYERと変わってもいい。ヘッダー・
+       サイドバー・パネルは維持」）。メイン表示だけの縦積みに単純化。 -->
+  <div class="player-section" data-pitch-mode="tuner" id="pitchTunerSection">
+    <!-- メイン表示マウント先。実際のゲージ/メーター等はJS側（表示
+         パターンのレジストリ、pitch-mode-tuner.js）が構築する。 -->
+    <div id="pitchTunerDisplayArea">
+      <div class="pitch-mic-permission" id="pitchMicPermission">
+        <p class="pitch-mic-permission-text">ヘッダーのマイクボタンを押すと、リアルタイムに音程を表示します</p>
+        <p class="pitch-mic-permission-note" id="pitchMicErrorNote"></p>
+      </div>
+      <div id="pitchTunerDisplayMount" hidden></div>
+    </div>
+  </div>
+
+  <!-- PITCHMODE用メインエリア。
+       【v1.0.1】PLAY/SAVE/CLEARは下部フッター(#pcV2BottomBar)から
+       撤去し、メイン画面自体の最下段（#pitchPitchControls）に固定
+       表示する形に変更（ユーザー指示：スクロールなしで1画面に収める
+       ため）。ロール表示部分(#pitchRollArea)がflexで残り高さいっぱいに
+       伸び、その中でピッチロール・音量パネルだけが縦に伸縮する。 -->
+  <div class="player-section" data-pitch-mode="pitch" id="pitchPitchSection" hidden>
+    <div id="pitchRollArea">
+      <div class="pitch-stage-meta">
+        <span class="pitch-stage-meta-label">NOTE</span>
+        <span class="pitch-stage-meta-value" id="pitchNoteReadout">--</span>
+        <span class="pitch-cents-readout" id="pitchCentsReadout">-- ¢</span>
+      </div>
+      <div class="pitch-roll-panel">
+        <div class="pitch-roll-keys" id="pitchRollKeys"></div>
+        <div class="pitch-roll-scroll" id="pitchRollScroll">
+          <div class="pitch-roll-content" id="pitchRollContent">
+            <canvas id="pitchRollCanvas"></canvas>
+          </div>
+        </div>
+      </div>
+      <div class="pitch-volume-panel">
+        <div class="pitch-volume-panel-label"><span>VOL</span></div>
+        <div class="pitch-volume-scroll" id="pitchVolumeScroll">
+          <canvas id="pitchVolumeCanvas"></canvas>
+        </div>
+      </div>
+      <p class="pitch-stage-hint" id="pitchStatusHint">マイク未接続 — ヘッダーのマイクボタンで開始</p>
+    </div>
+
+    <!-- 再生中の情報行（曲名・スコア・シークバー相当）。再生していない
+         間は非表示。 -->
+    <div class="pitch-pb-info-row" id="pitchPbInfoRow" hidden>
+      <span class="pitch-pb-name" id="pitchPbName">—</span>
+      <span class="pitch-pb-score" id="pitchPbScore"></span>
+      <div class="pitch-pb-progress-track"><div class="pitch-pb-progress-fill" id="pitchPbProgressFill"></div></div>
+      <button type="button" class="pitch-pb-close-btn" id="pitchPbCloseBtn" title="Close">
+        <svg viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 7 19l5.59-5.59L17.59 19 19 17.59 13.41 12z"/></svg>
+      </button>
+    </div>
+
+    <!-- 【v1.0.1新設】メイン画面最下段に固定表示するPLAY/SAVE/CLEAR。
+         #pcV2BottomBar（QNPLAYERのグループ+区切り線の型）は撤去し、
+         PITCHMODE専用のシンプルな横並びボタン行にした。 -->
+    <div id="pitchPitchControls">
+      <button type="button" class="pitch-main-ctrl-btn" id="pitchRecBtn" title="Record / Stop">
+        <svg id="pitchRecIcon" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8"/></svg>
+        <span id="pitchRecLabel">Rec</span>
+      </button>
+      <button type="button" class="pitch-main-ctrl-btn" id="pitchPlayToggleBtn" title="Play / Pause" disabled>
+        <svg id="pitchPlayIcon" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
+        <span id="pitchPlayLabel">Play</span>
+      </button>
+      <button type="button" class="pitch-main-ctrl-btn" id="pitchSaveBtn" title="Save recording" disabled>
+        <svg viewBox="0 0 24 24"><path d="M17 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V7l-4-4zm-5 16c-1.66 0-3-1.34-3-3s1.34-3 3-3 3 1.34 3 3-1.34 3-3 3zm3-10H5V5h10v4z"/></svg>
+        <span>Save</span>
+      </button>
+      <button type="button" class="pitch-main-ctrl-btn" id="pitchClearBtn" title="Clear roll">
+        <svg viewBox="0 0 24 24"><path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/></svg>
+        <span>Clear</span>
+      </button>
+    </div>
+  </div>
+
+  <div class="sidebar-section" id="sidebarSection">
+    <!-- Control / Markers / Playlist の切り替えタブ（旧Basicタブは撤去、Controlは新設） -->
+    <div class="mobile-tabs" id="mobileTabs">
+      <button class="mobile-tab-btn" data-tab="control">Tone Generator</button>
+      <button class="mobile-tab-btn" data-tab="markers">Sensitivity</button>
+      <button class="mobile-tab-btn active" data-tab="playlist">Filters</button>
+      <button class="mobile-tab-btn" data-tab="text">Recordings</button>
+    </div>
+
+    <!-- Tone Generatorタブ：QNPLAYERのControlタブ（.control-list>.control-card
+         の型）を踏襲。旧QNTUNERのGuitar/Bass/Ukulele/Chromaticプリセットと
+         弦リストをこの型に合わせて実装。 -->
+    <div class="mobile-tab-panel" data-tab-panel="control">
+      <div class="markers-heading-row">
+        <h3>Tone Generator</h3>
+      </div>
+      <div class="control-list">
+        <div class="control-card" id="pitchToneNow" hidden>
+          <label>Now Playing <span id="pitchToneNowNote" style="color:#fff;">—</span></label>
+          <div class="pitch-tone-now-row">
+            <span class="pitch-tone-now-freq"><span id="pitchToneNowFreq">0.0</span> Hz</span>
+            <button type="button" class="mini-reset-btn" id="pitchToneStopBtn">STOP</button>
+          </div>
+        </div>
+
+        <div class="control-card">
+          <label>Preset</label>
+          <div class="pitch-preset-tabs" id="pitchPresetTabs">
+            <button class="pitch-preset-tab is-active" data-preset="guitar" type="button">Guitar</button>
+            <button class="pitch-preset-tab" data-preset="bass" type="button">Bass</button>
+            <button class="pitch-preset-tab" data-preset="ukulele" type="button">Ukulele</button>
+            <button class="pitch-preset-tab" data-preset="chromatic" type="button">Wind</button>
+          </div>
+          <div class="pitch-tuning-tabs" id="pitchTuningTabs"></div>
+        </div>
+
+        <div class="control-card">
+          <label>Strings</label>
+          <div class="pitch-string-list" id="pitchStringList"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Sensitivityタブ：QNPLAYERのMarkersタブ位置。TUNERMODEのマイク
+         感度・スムージング設定と、メイン表示パターン選択を格納する。 -->
+    <div class="mobile-tab-panel" data-tab-panel="markers">
+      <div class="markers-heading-row">
+        <h3>Sensitivity</h3>
+      </div>
+      <div class="control-list">
+        <div class="control-card">
+          <label>Sensitivity <span id="pitchSensitivityValue" style="color:#fff;">100</span>%</label>
+          <input type="range" id="pitchSensitivitySlider" min="0" max="100" step="1" value="100">
+        </div>
+        <div class="control-card">
+          <label>Smoothing <span id="pitchSmoothingValue" style="color:#fff;">100</span>%</label>
+          <input type="range" id="pitchSmoothingSlider" min="0" max="100" step="1" value="100">
+        </div>
+      </div>
+    </div>
+
+    <!-- 【v1.0.2新設】Displayタブ：Sensitivityパネルから分離した
+         メイン表示（Gauge/Guitar Meter）選択。プルダウンではなく、
+         見た目のミニプレビュー付きの選択カードを縦に2段並べる
+         （ユーザー指示：「見た目をパネルに2段並べて選択する感じ」）。
+         カードの中身はpitch-mode-tuner.js側が動的に構築する。 -->
+    <div class="mobile-tab-panel" data-tab-panel="display">
+      <div class="markers-heading-row">
+        <h3>Display</h3>
+      </div>
+      <div id="pitchDisplayChoices" class="pitch-display-choices"></div>
+    </div>
+
+    <!-- Filtersタブ：QNPLAYERのPlaylistタブ位置。PITCHMODEのノイズ除去・
+         音程ズレハイライト・ビブラート検出・スコア判定設定を格納する。 -->
+    <div class="mobile-tab-panel" data-tab-panel="playlist">
+      <div class="markers-heading-row">
+        <h3>Filters</h3>
+      </div>
+      <div id="pitchFiltersBox"></div>
+    </div>
+
+    <!-- Recordingsタブ：QNPLAYERのTextタブ位置。PITCHMODEの録音一覧を格納する。 -->
+    <div class="mobile-tab-panel" data-tab-panel="text">
+      <div class="markers-heading-row">
+        <h3>Recordings</h3>
+      </div>
+      <div id="pitchRecListScroll"></div>
+    </div>
+  </div>
+</div>
+
 
 <script src="JS/pitch-core.js"></script>
-<script src="JS/pitch-ui-pc-v2.js"></script>
+<script src="JS/pitch-ui-shared.js"></script>
 <script src="JS/pitch-filters.js"></script>
 <script src="JS/pitch-recordings.js"></script>
 <script src="JS/pitch-mode-tuner.js"></script>
 <script src="JS/pitch-mode-pitch.js"></script>
+<script src="JS/pitch-ui-pc-v2.js"></script>
 <script src="JS/pitch-theme.js"></script>
 <script type="module" src="JS/pitch-auth.js"></script>
 <!-- JS/pitch-metronome.js：内蔵メトロノームは実装後回し。着手時にここへ追加する。 -->

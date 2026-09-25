@@ -2,21 +2,17 @@
 // pitch-core.js
 // QNPITCH共通：マイク入力・ピッチ検出アルゴリズム。DOM操作なし。
 // TUNERMODE（pitch-mode-tuner.js）・PITCHMODE（pitch-mode-pitch.js）
-// の両方から参照される、md/AI_ASSISTANT_PROJECT_CONTEXT.md §0-3で
-// 決めた「ピッチ検出コアの1本化」の実体。
+// の両方から参照される。
 //
-// 【移植元】旧QNTUNER(player.js)・旧QNPITCH(app.js)は、ほぼ同じ内容の
-// autoCorrelate（自己相関法によるピッチ検出）・freqToMidi/freqToNote・
-// midiToNoteName をそれぞれ個別に実装していた。このファイルはその
-// 重複を解消し、1つの実装に統合したもの。フィルタ処理（rms早期return
-// せず{freq, rms}を返し、呼び出し側にフィルタ判断を委ねる設計）は
-// 旧QNPITCH側の方が柔軟だったため、それを踏襲している。
+// 【由来】旧QNTUNER(player.js)・旧QNPITCH(app.js)がそれぞれ個別に
+// 実装していた、ほぼ同じ内容のautoCorrelate（自己相関法によるピッチ
+// 検出）・freqToMidi/freqToNote・midiToNoteNameを統合したもの。
 //
-// 【将来のユースケースを見据えた設計】§0-2の追加方針の通り、いずれ
-// 「PLAYER再生中にチューニング」「曲を流しながらの音程チェック」を
-// 見据え、解析対象の入力を getUserMedia のマイクストリームに決め打ち
-// せず、任意の AudioNode を解析できる形にしてある
-// （startAnalysisFromStream / startAnalysisFromNode の2つの入口）。
+// 【将来のユースケースを見据えた設計】いずれ「PLAYER再生中に
+// チューニング」「曲を流しながらの音程チェック」を見据え、解析対象の
+// 入力をgetUserMediaのマイクストリームに決め打ちせず、任意の
+// AudioNodeを解析できる形にしてある（startFromMic / startFromNodeの
+// 2つの入口）。
 // ============================================================
 
 window.QNPitch = window.QNPitch || {};
@@ -27,12 +23,10 @@ window.QNPitch = window.QNPitch || {};
   const NOTE_NAMES = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
   const A4 = 440;
 
-  // frequency -> MIDIノート番号（小数、セント情報を含む）
   function freqToMidi(freq) {
     return 69 + 12 * Math.log2(freq / A4);
   }
 
-  // frequency -> { noteName, octave, cents, midi(整数に丸めた値) }
   function freqToNote(freq) {
     const midi = freqToMidi(freq);
     const roundedMidi = Math.round(midi);
@@ -42,12 +36,10 @@ window.QNPitch = window.QNPitch || {};
     return { noteName, octave, cents, midi: roundedMidi };
   }
 
-  // MIDIノート番号 -> frequency
   function noteToFreq(midi) {
     return A4 * Math.pow(2, (midi - 69) / 12);
   }
 
-  // MIDIノート番号（整数）-> "C4"のような表示名
   function midiToNoteName(midi) {
     const name = NOTE_NAMES[((midi % 12) + 12) % 12];
     const oct = Math.floor(midi / 12) - 1;
@@ -55,11 +47,6 @@ window.QNPitch = window.QNPitch || {};
   }
 
   // ==================== ピッチ検出（自己相関法） ====================
-  // buf: Float32Array（analyser.getFloatTimeDomainDataの出力）
-  // sampleRate: audioCtx.sampleRate
-  // 戻り値: { freq, rms }。freq === -1 は無音/検出不能。
-  // 呼び出し側で freq の妥当範囲（例：30〜2000Hz）を判断すること
-  // （用途によって許容範囲が異なるため、ここでは範囲チェックしない）。
   function autoCorrelate(buf, sampleRate) {
     const SIZE = buf.length;
     let rms = 0;
@@ -67,7 +54,6 @@ window.QNPitch = window.QNPitch || {};
     rms = Math.sqrt(rms / SIZE);
     if (rms < 0.01) return { freq: -1, rms };
 
-    // 振幅の小さい両端をトリムする
     let r1 = 0, r2 = SIZE - 1;
     const thres = 0.2;
     for (let i = 0; i < SIZE / 2; i++) {
@@ -96,7 +82,6 @@ window.QNPitch = window.QNPitch || {};
     let T0 = maxPos;
     if (T0 <= 0) return { freq: -1, rms };
 
-    // 放物線補間で精度を上げる
     const x1 = c[T0 - 1] || c[T0];
     const x2 = c[T0];
     const x3 = c[T0 + 1] || c[T0];
@@ -109,24 +94,6 @@ window.QNPitch = window.QNPitch || {};
   }
 
   // ==================== 解析セッション ====================
-  // マイク（またはAudioNode）からの継続的なピッチ解析を1つのセッション
-  // として管理する。呼び出し側（TUNERMODE/PITCHMODE）はこれを使い、
-  // 個別にAudioContext/AnalyserNodeを持たない。
-  //
-  // 使い方：
-  //   const session = window.QNPitch.core.createAnalysisSession({
-  //     fftSize: 2048,
-  //     onFrame(result, ctx) {
-  //       // result: { freq, rms } / ctx: { sampleRate }
-  //     }
-  //   });
-  //   await session.startFromMic();   // マイク入力を解析
-  //   session.stop();
-  //
-  // 将来、PLAYER再生音を解析したくなった場合は
-  //   session.startFromNode(playerAudioContext, playerSourceNode)
-  // のように、既存のAudioContext/AudioNodeを渡す経路を使う
-  // （マイク経由と同じonFrameコールバックで結果を受け取れる）。
   function createAnalysisSession(options) {
     const opts = options || {};
     const fftSize = opts.fftSize || 2048;
@@ -138,7 +105,7 @@ window.QNPitch = window.QNPitch || {};
     let analyser = null;
     let dataBuf = null;
     let rafId = null;
-    let ownsAudioCtx = false; // マイク経由の場合、このセッションがAudioContextを所有し、stop()時にcloseする
+    let ownsAudioCtx = false;
 
     function tick() {
       if (!analyser || !audioCtx) return;
@@ -158,7 +125,6 @@ window.QNPitch = window.QNPitch || {};
       rafId = requestAnimationFrame(tick);
     }
 
-    // マイク入力から解析を開始する（TUNERMODE/PITCHMODEの通常の入口）。
     async function startFromMic(constraints) {
       ownsAudioCtx = true;
       audioCtx = new (window.AudioContext || window.webkitAudioContext)();
@@ -175,11 +141,7 @@ window.QNPitch = window.QNPitch || {};
       attachAnalyser(audioCtx, srcNode);
     }
 
-    // 既存のAudioContext/AudioNodeを解析対象にする（§0-2：将来、
-    // PLAYER再生音を同じ検出関数で解析するための入口。現段階の
-    // QNPITCH単体実装では未使用だが、大改造なしで拡張できるよう
-    // 用意してある）。このセッションはAudioContextを所有しない
-    // （stop()時にcloseしない＝呼び出し元のAudioContextを壊さない）。
+    // 将来、PLAYER再生音を同じ検出関数で解析するための入口。
     function startFromNode(existingAudioCtx, existingSourceNode) {
       ownsAudioCtx = false;
       attachAnalyser(existingAudioCtx, existingSourceNode);

@@ -1,48 +1,52 @@
 /* ============================================================
    style-layout-pc-v2.css
-   PC v2シェル：左アイコンバー＋中央パネル＋右メインウインドウの
-   3カラムレイアウト。画面幅を問わず常時有効（pitch-ui-pc-v2.js側で
-   常時activate）。SP幅（900px以下）ではこのファイル末尾の
+   QNPITCH PC v2：左アイコンバー＋中央パネル＋右メインエリアの3カラム
+   レイアウト（骨組みはQNPLAYERから移植。pitch-ui-pc-v2.js参照）。
+   画面幅を問わず常時有効。SP幅（900px以下）ではファイル末尾の
    @media(max-width:900px)ブロックで、同じDOM構造のままアイコンバー
    最下部固定＋パネル全面オーバーレイの縦積みレイアウトに切り替える。
 
-   【重要】md/AI_ASSISTANT_PROJECT_CONTEXT.md §0-2の通り、このファイルは
-   QNPLAYERのstyle-layout-pc-v2.css / style-pcv2-panels.cssから「骨格
-   部分（PLAYER固有のプレイリスト・波形バー・トランスポート等を除いた、
-   #pcV2Root〜#pcV2IconBar〜#pcV2Panel〜#pcV2WaveAreaのレイアウトと
-   SP切り替えの仕組み）」だけを抽出・移植したもの。DOM構造・クラス名の
-   「型」はQNPLAYERと同一に保ち、QNPITCH固有のカスタマイズは加えない。
-
-   このファイルの#pcV2WaveArea配下（TUNERMODE/PITCHMODEのメイン表示）
-   と#pcV2PanelBody配下（各パネルの中身）の詳細スタイルは、このファイル
-   ではなく style-mode-tuner.css / style-mode-pitch.css / 
-   style-filters.css 等、機能ごとのファイルに書く。
+   #sidebarSection以下のDOM（Tone Generator/Sensitivity/Filters/
+   Recordings等の中身）はロジック側がid依存で動いているため一切変更せず、
+   pitch-ui-pc-v2.jsがこの骨組み(#pcV2Layout)を組み立てて既存要素を
+   JSで中に移動する。パネルの中身のスタイルはstyle-pcv2-panels.css側。
    ============================================================ */
 
 #pcV2Root {
   display: none;
 }
 
-/* PC v2は「1画面に収まる固定レイアウト」。中身のパネルやメイン
-   ウインドウだけがスクロールし、ページ全体はスクロールしない。 */
+
+/* PC v2は「1画面に収まる固定レイアウト」（モック準拠）。中身のパネルや
+   波形エリアだけがスクロールし、ページ全体はスクロールしない。
+   既存のSP版は逆にページ全体がスクロールする設計のため、この高さ固定は
+   PC v2有効時（html.pc-v2-active-html／body.pc-v2-active）限定で適用する。 */
 html.pc-v2-active-html {
   height: 100%;
   overflow: hidden;
 }
 
+
 body.pc-v2-active {
-  height: 100vh;
-  height: 100dvh;
+  height: 100vh; /* dvh未対応ブラウザ向けフォールバック */
+  height: 100dvh; /* Android Chrome等、URLバー/ツールバーの表示状態で
+                     ビューポート実寸が変わる環境でも、実際に見える高さに
+                     追従させる。#pcV2IconBar（Control/Markers/Library/Text
+                     の切り替え入口）が画面最下部固定のため、100vh固定だと
+                     ブラウザUIの分だけ下端が隠れてしまう問題への対処。 */
   box-sizing: border-box;
   overflow: hidden;
+  /* モック準拠：グローエフェクトのグラデーションを外し単色背景にする。
+     bodyのpadding(24px、SP版・PC旧レイアウト向け)もモック同様0にし、
+     ヘッダー/3カラム/下段バーが画面幅いっぱいに広がるようにする。 */
   background: #0a0a0c;
   padding: 0;
 }
 
+
 /* PC幅かつレイアウトが有効化された時だけ表示。有効化はJS側で
    body.pc-v2-active を付与することで行う。
-   #pcV2Root は「3カラム部分(#pcV2Layout)」と「下段固定コントロール
-   バー(#pcV2BottomBar)」を縦に積む器。 */
+   #pcV2Root は3カラム部分(#pcV2Layout)を積む器。 */
 body.pc-v2-active #pcV2Root {
   display: flex;
   flex-direction: column;
@@ -51,10 +55,12 @@ body.pc-v2-active #pcV2Root {
   flex: 1;
 }
 
+
 #pcV2Layout {
   display: grid;
   /* パネル幅はSP幅（900px以下）でのオーバーレイパネルが実機で使う幅
-     (iPhone標準375px)に合わせる。QNPLAYERと同じ数値で統一。 */
+     (iPhone標準375px)に合わせている。PC幅の開発中にそのままSP幅相当の
+     見た目・詰まり具合を確認できるようにするための意図的な統一。 */
   grid-template-columns: 76px 375px 1fr;
   grid-template-rows: 1fr;
   gap: 0;
@@ -63,6 +69,13 @@ body.pc-v2-active #pcV2Root {
   min-height: 0;
   flex: 1;
 }
+
+
+/* 移植元の.app-containerはPC v2有効時は非表示にする */
+body.pc-v2-active > .app-container {
+  display: none;
+}
+
 
 /* --- 左：縦アイコンバー --- */
 #pcV2IconBar {
@@ -75,12 +88,14 @@ body.pc-v2-active #pcV2Root {
   min-height: 0;
 }
 
+
 /* アイコンバー右端「まだ続きがある」ヒント矢印。
    PC幅ではアイコンバーは縦並び固定表示で横スクロール自体が存在しない
    ため、常に非表示にする（SP幅側のメディアクエリで表示に切り替える）。 */
 #pcV2IconBarScrollHint {
   display: none;
 }
+
 
 .pcv2-icon-item {
   display: flex;
@@ -97,14 +112,17 @@ body.pc-v2-active #pcV2Root {
   transition: color 120ms ease, background 120ms ease;
 }
 
+
 .pcv2-icon-item:hover {
   color: var(--text-bright);
   background: rgba(255, 255, 255, 0.03);
 }
 
+
 .pcv2-icon-item.active {
   color: var(--accent-primary);
 }
+
 
 .pcv2-icon-item.active::before {
   content: "";
@@ -116,11 +134,13 @@ body.pc-v2-active #pcV2Root {
   background: var(--accent-primary);
 }
 
+
 .pcv2-icon-item svg {
   width: 20px;
   height: 20px;
   fill: currentColor;
 }
+
 
 .pcv2-icon-item span {
   font-size: 10px;
@@ -128,17 +148,20 @@ body.pc-v2-active #pcV2Root {
   letter-spacing: 0.3px;
 }
 
-/* メインウインドウに戻るショートカット（QNPLAYERのSeekbarボタンに
-   相当）は、SP幅（パネルがオーバーレイ表示される画面幅）でのみ意味を
-   持つ。PC幅では常時パネル表示でそもそも「閉じる」概念が無いため、
+
+/* Seekbarボタン（波形が見える基本画面に戻るショートカット）は、
+   SP幅（パネルがオーバーレイ表示される画面幅）でのみ意味を持つ。
+   PC幅では常時パネル表示でそもそも「閉じる」概念が無いため、
    アイコンバー自体からもここで非表示にする。 */
-.pcv2-icon-item[data-panel-id="mainview"] {
+.pcv2-icon-item[data-panel-id="seekbar"] {
   display: none;
 }
+
 
 #pcV2IconBarSpacer {
   flex: 1;
 }
+
 
 #pcV2IconBarBottom {
   display: flex;
@@ -148,6 +171,7 @@ body.pc-v2-active #pcV2Root {
   padding-top: 8px;
 }
 
+
 /* --- 中央：選択中パネル --- */
 #pcV2Panel {
   border-right: 1px solid var(--border-subtle);
@@ -155,196 +179,211 @@ body.pc-v2-active #pcV2Root {
   flex-direction: column;
   min-height: 0;
   min-width: 0;
+  /* フローティングアクションボタン(#pcV2PanelFab)の絶対配置の基準。 */
   position: relative;
 }
 
-#pcV2PanelHeader {
-  padding: 14px 16px 14px 20px;
-  border-bottom: 1px solid var(--border-subtle);
-  font-family: var(--font-display, 'Instrument Sans'), sans-serif;
-  font-size: var(--fs-title);
-  font-weight: 600;
-  letter-spacing: 0.5px;
-  text-transform: uppercase;
-  color: var(--icon-muted);
-  flex-shrink: 0;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-}
 
-.pcv2-panel-header-title {
-  display: block;
-  color: var(--accent-primary);
-}
-
-#pcV2PanelBody {
-  flex: 1;
-  min-height: 0;
-  overflow-y: auto;
-  position: relative;
-}
-
-/* パネル切替時に非表示パネルの実体を退避しておく場所。document内に
-   置き続けることで、非表示中でも裏での更新が空振りしない
-   （QNPLAYER §3-19の教訓をQNPITCHでも最初から踏襲）。 */
-#pcV2PanelStash {
-  display: none;
-}
-
-/* --- 右：メインウインドウ（TUNERMODE/PITCHMODEの常時表示） --- */
+/* --- 右：波形エリア --- */
 #pcV2WaveArea {
   display: flex;
   flex-direction: column;
   min-width: 0;
   min-height: 0;
-  padding: 20px 24px;
+  padding: 20px 24px 24px;
   overflow-y: auto;
   position: relative;
 }
 
-/* ============================================================
-   フローティングアクションボタン(#pcV2PanelFab)共通スタイル。
-   パネルの右下に固定表示する。QNPLAYERと同じ型。
-   ============================================================ */
-#pcV2PanelFab {
-  position: absolute;
-  right: 20px;
-  bottom: 20px;
-  display: flex;
-  flex-direction: column;
-  align-items: flex-end;
-  gap: 10px;
-  z-index: 5;
-  pointer-events: none;
+
+/* ヘッダー：モック準拠（52px高さ、下境界線、小さめロゴ＋QN Seriesドロップダウン） */
+body.pc-v2-active #appHeader {
+  height: 52px;
+  border-bottom: 1px solid var(--border-subtle);
+  margin: 0;
+  padding: 0 20px;
+  width: 100%;
+  gap: 24px;
+  box-sizing: border-box;
 }
 
-.panel-fab-btn {
-  pointer-events: auto;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-  padding: 12px 22px;
-  border-radius: var(--radius-pill);
-  color: var(--text-pure-white, #fff);
-  cursor: pointer;
-  background: var(--accent-primary);
-  border: none;
-  flex-shrink: 0;
-  font-family: var(--font-display, 'Instrument Sans'), sans-serif;
-  font-size: var(--fs-btn-primary);
+
+body.pc-v2-active #appLogo {
+  font-size: 30px;
   font-weight: 700;
-  letter-spacing: 0.5px;
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
-  transition: background 0.15s ease, transform 0.1s ease;
+  letter-spacing: 0.3px;
 }
 
-.panel-fab-btn svg {
-  width: 17px;
-  height: 17px;
-  fill: currentColor;
-  flex-shrink: 0;
+
+body.pc-v2-active #appVersion {
+  display: inline-block;
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.3px;
+  color: #55555f;
+  white-space: nowrap;
+  margin-left: 6px;
 }
 
-.panel-fab-btn:hover {
-  background: var(--accent-hover-1);
-}
 
-.panel-fab-btn:active {
-  transform: scale(0.96);
-}
-
-/* --- 下段：固定コントロールバー --- */
-#pcV2BottomBar {
-  border-top: 1px solid var(--border-subtle);
-  padding: 10px 24px;
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  flex-shrink: 0;
-}
-
-/* SP幅限定：#pcV2BottomBarの直上に置くアンカータブ。QNPITCHは
-   下部バーが横スクロールするほどボタンが多くないため、現状は
-   使わない想定だが、型として残しておく（将来ボタンが増えた場合用）。
-   PC幅・SP幅ともに一旦非表示。必要になったら§0-2のICON_ITEMS型に
-   倣って有効化する。 */
-#pcV2BottomBarAnchorTabs {
+/* ハンバーガーメニュー(#qnMenuMount)自体はPC v2では非表示。
+   中身の機能(Theme/Shortcuts)はアイコンバー下段のKeyboard/Colorボタンに
+   移設済み。ポップアップ本体(#qnMenuPopup)は引き続きDOM上に存在し、
+   それらのボタンから間接的に開閉されるため、ボタン(#qnMenuBtn)のみを
+   隠す。 */
+body.pc-v2-active #qnMenuMount {
   display: none;
 }
 
-#pcV2BottomBar .pcv2-ctrl-group {
+
+#pcV2HeaderNav {
+  position: relative;
   display: flex;
   align-items: center;
-  gap: 0;
 }
 
-#pcV2BottomBar .pcv2-ctrl-divider {
-  width: 1px;
+
+/* ▼のみのトリガー(テキストラベル無し)。ロゴのすぐ右に置く。 */
+.pcv2-header-nav-trigger {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
   height: 24px;
-  background: var(--border-subtle);
-  margin: 0 10px;
-}
-
-#pcV2BottomBar .pcv2-ctrl-spacer {
-  flex: 1;
-}
-
-#pcV2BottomBar .pcv2-ctrl-btn {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 0;
-  padding: 8px 7px;
-  cursor: pointer;
   color: var(--icon-muted);
+  cursor: pointer;
+  padding: 0;
   background: none;
   border: none;
+  border-radius: var(--radius-pill);
+  transition: color 120ms ease, background 120ms ease;
+}
+
+
+.pcv2-header-nav-trigger:hover,
+#pcV2HeaderNav.open .pcv2-header-nav-trigger {
+  color: var(--text-bright);
+  background: var(--bg-hover-subtle);
+}
+
+
+.pcv2-header-nav-trigger svg {
+  width: 16px;
+  height: 16px;
+  fill: currentColor;
+  transition: transform 120ms ease;
+}
+
+
+#pcV2HeaderNav.open .pcv2-header-nav-trigger svg {
+  transform: rotate(180deg);
+}
+
+
+/* ドロップダウン：ロゴと同じ大きさでアプリ名を縦に並べ、
+   アプリ名の右に機能説明を添える。
+   【縮小】全体的に表示が大きすぎたため、幅・フォントサイズ・paddingを
+   縮小した。説明文は折り返し禁止(white-space指定なし=デフォルトのnormal)
+   のままだと横に伸びきってしまうため、明示的に改行を許可する。 */
+.pcv2-header-nav-dropdown {
+  position: absolute;
+  top: calc(100% + 10px);
+  left: 0;
+  background: #101013;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-popup);
+  padding: 8px;
+  min-width: 320px;
+  max-width: 360px;
+  display: none;
+  flex-direction: column;
+  z-index: 300;
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.5);
+}
+
+
+#pcV2HeaderNav.open .pcv2-header-nav-dropdown {
+  display: flex;
+}
+
+
+.pcv2-header-nav-link {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+  padding: 8px 10px;
+  border-radius: var(--radius-field);
+  text-decoration: none;
+}
+
+
+.pcv2-header-nav-link:hover {
+  background: var(--bg-hover-subtle);
+}
+
+
+.pcv2-header-nav-link-name {
   font-family: var(--font-display, 'Instrument Sans'), sans-serif;
-  position: relative;
-  transition: transform var(--dur-press) var(--ease-snap);
+  font-size: 18px;
+  font-weight: 700;
+  letter-spacing: 0.3px;
+  color: var(--text-bright);
+  flex-shrink: 0;
 }
 
-@media (hover: hover) and (pointer: fine) {
-  #pcV2BottomBar .pcv2-ctrl-btn:hover {
-    color: var(--text-bright);
-  }
-}
 
-#pcV2BottomBar .pcv2-ctrl-btn:active {
-  transform: scale(0.94);
-}
-
-#pcV2BottomBar .pcv2-ctrl-btn.primary,
-#pcV2BottomBar .pcv2-ctrl-btn.active {
+/* 先頭の"QN"だけヘッダーロゴ(#appLogoQN)と同じアクセントカラーにする。
+   残り(PLAYER/PITCH等)は常に白のまま——currentクラス(選択中のアプリ)が
+   付いても、この白は変えない。以前はアプリ名全体をcurrent時に
+   アクセントカラーにしていたため、ヘッダーロゴの配色(QNのみ色付け)と
+   ズレていた。 */
+.pcv2-header-nav-link-name-qn {
   color: var(--accent-primary);
 }
 
-#pcV2BottomBar .pcv2-ctrl-btn svg {
-  width: 20px;
-  height: 20px;
-  fill: currentColor;
+
+.pcv2-header-nav-link-desc {
+  font-family: var(--font-body, 'Instrument Sans'), sans-serif;
+  font-size: 11px;
+  color: var(--icon-muted);
+  text-align: right;
+  flex: 1;
+  white-space: normal;
+  word-break: break-word;
 }
 
-#pcV2BottomBar .pcv2-ctrl-btn.primary svg {
-  width: 26px;
-  height: 26px;
+
+/* Keyboard/Colorパネル：#qnMenuMount内（player-theme.js/style-theme.css
+   が担当）のTheme/Shortcutsセクションをそのままパネル内に表示する。
+   セクション自体のスタイル(style-theme.css)は活かしつつ、パネル用の
+   余白だけ馴染ませる。 */
+.pcv2-qn-loading {
+  color: #6b6b7b;
+  font-size: var(--fs-small);
+  padding: 8px 0;
 }
 
-#pcV2BottomBar .pcv2-ctrl-btn span {
-  font-size: 9px;
-  font-weight: 600;
-  letter-spacing: 0.3px;
-  margin-top: 4px;
-}
+
+/* Text見出しのEDIT・フルスクリーンボタンは、画面右下の
+   フローティングアクションボタン(#pcV2PanelFab、.panel-fab-btn)に
+   統一済みのため、ここでのID固有スタイルは持たない。 */
 
 /* ============================================================
-   SP幅（900px以下）レイアウト。
-   #pcV2BottomBarと#pcV2IconBar（#pcV2Layout内）の順序は、CSSの
-   orderプロパティではなく、pitch-ui-pc-v2.js側でJSが実際にDOM要素を
-   並べ替えることで実現する（QNPLAYERと同じ設計、詳細はJS側コメント
-   参照）。
+   SP幅（900px以下）：PC v2構造をそのまま使い、レイアウトだけを
+   縦積み＋オーバーレイパネルに組み替える。
+
+   【方針】
+   - #pcV2Layoutの3カラムgridをやめ、縦のflexにする。
+   - アイコンバー(#pcV2IconBar)は画面最下部に固定、横並び・横スクロール。
+   - パネル(#pcV2Panel)は通常非表示。アイコンタップ時にJS側が
+     #pcV2Layoutへ付与する.pcv2-panel-openクラスが立っている間だけ、
+     ヘッダー直下〜アイコンバー直上までを覆う全面オーバーレイとして
+     表示する（波形エリアの上に重なる。波形エリア自体は裏に残ったまま）。
+   - 波形エリア(#pcV2WaveArea)は元のまま、幅からはみ出さない程度の
+     調整のみ行う。
+   - #pcV2PanelBody配下（Control/Sensitivity/Filters/Recordings等の
+     中身）はPC幅と全く同じDOM・CSSをそのまま使う。展開時に幅100%で
+     表示されるため、個別の調整は基本的に不要。
    ============================================================ */
 @media screen and (max-width: 900px) {
   body.pc-v2-active #appHeader {
@@ -365,74 +404,128 @@ body.pc-v2-active #pcV2Root {
     flex: 1;
   }
 
-  /* メインウインドウ：常に裏側にいる本体。アイコンバー・下部バーの
-     高さ分だけ下にpaddingを持たせ、コントロール類と重ならないように
-     する。 */
+  /* 波形エリア：常に裏側にいる本体。アイコンバーの高さ分だけ
+     下にpaddingを持たせ、コントロール類と重ならないようにする。 */
   #pcV2WaveArea {
     flex: 1;
     min-height: 0;
     order: 1;
     padding: 8px 16px;
-    padding-bottom: var(--pcv2-wave-fab-space, 62px);
   }
 
-  /* 下段コントロールバー：JS側でDOM上、アイコンバーの直前（つまり
-     画面ではアイコンバーのすぐ上）へ移動される。 */
-  #pcV2BottomBar {
-    order: 4;
-    flex-shrink: 0;
-    overflow-x: auto;
-    overflow-y: hidden;
-    -webkit-overflow-scrolling: touch;
-    padding: 0px 25px;
-    scrollbar-width: none;
-    border-top: 1px solid var(--border-subtle);
-    border-bottom: 1px solid var(--border-subtle);
-  }
-
-  #pcV2BottomBar::-webkit-scrollbar {
-    display: none;
-  }
-
-  #pcV2BottomBar .pcv2-ctrl-group {
-    flex-shrink: 0;
-  }
-
-  /* アイコンバー：画面最下部固定。order番号はQNPLAYERと同じ採番方式
-     （整数のみ。CSSのorderは<integer>しか許容しないため小数値は
-     使わない）。 */
+  /* アイコンバー：画面最下部に固定、縦並び→横並びに変更。
+     はみ出る分は横スクロールする。
+     タップしやすさを優先し、アイコン・ラベル・paddingをPC幅時より
+     大きくする（.pcv2-icon-item側で上書き、下記参照）。
+     padding-bottomは、iOSのホームインジケーター操作エリア
+     （env(safe-area-inset-bottom)）に加えて、さらに16px余分に確保する。
+     画面の一番下ギリギリまでタップ領域があると、iPhoneでは横スワイプが
+     アプリ切り替えジェスチャーとして奪われ、このバーの横スクロールが
+     誤操作扱いされてしまうため、実際に指が触れる領域をはっきり分かる
+     程度に上げて誤スワイプを防ぐ。 */
   #pcV2IconBar {
     order: 5;
     flex-direction: row;
-    justify-content: flex-start;
-    overflow-x: auto;
-    -webkit-overflow-scrolling: touch;
-    padding: 8px 12px;
-    scrollbar-width: none;
     flex-shrink: 0;
+    align-items: stretch;
     border-right: none;
+    padding: 6px 6px calc(24px + env(safe-area-inset-bottom, 0px));
+    gap: 2px;
+    overflow-x: auto;
+    overflow-y: hidden;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
   }
 
   #pcV2IconBar::-webkit-scrollbar {
     display: none;
   }
 
+  /* アイコンバー右端「まだ続きがある」ヒント矢印。
+     #pcV2Layout（position: relativeが既に設定済み、このファイル冒頭の
+     SP幅ブロック参照）を基準に、アイコンバーの右端へ重ねて絶対配置する。
+     JS側(updateIconBarScrollHint)が.visibleクラスを付け外しして表示を
+     切り替える。初期状態(.visibleなし)は非表示にしておき、実際に右へ
+     スクロールできる時だけJSが表示する（要素はあるが判定が終わるまで
+     一瞬見えてしまう、というチラつきを避けるため）。
+     左側に背景と同系色のグラデーションを敷き、矢印がボタンの上に
+     唐突に乗っているのではなく、「バーの端がフェードしている」ように
+     見せることで、続きがあることを直感的に伝える。 */
+  #pcV2IconBarScrollHint {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    position: absolute;
+    right: 0;
+    /* アイコンバーの下側padding(24px+セーフエリア)を除いた、実際に
+       ボタンが並んでいる高さの目安（上下padding 12px×2 + アイコン26px）。 */
+    bottom: calc(24px + env(safe-area-inset-bottom, 0px));
+    height: 66px;
+    width: 44px;
+    padding-right: 4px;
+    pointer-events: none;
+    background: linear-gradient(to right, transparent, #0a0a0c 65%);
+    opacity: 0;
+    transition: opacity 0.2s ease;
+    z-index: 2;
+  }
+
+  #pcV2IconBarScrollHint.visible {
+    opacity: 1;
+  }
+
+  #pcV2IconBarScrollHint svg {
+    width: 20px;
+    height: 20px;
+    fill: var(--icon-muted, #8b8b9e);
+    /* 【v2.16.3】無限ループは表示中ずっとスタイル再計算を招くため、
+       気づかせる目的の数回だけ動かして止める（§3-21）。 */
+    animation: pcv2-scroll-hint-nudge 1.6s ease-in-out 3;
+  }
+
+  @keyframes pcv2-scroll-hint-nudge {
+    0%, 100% { transform: translateX(0); }
+    50% { transform: translateX(3px); }
+  }
+
+  /* タップ領域を優先して、PC幅時（padding: 12px 4px、SVG20px、
+     ラベル10px、gap6px）よりしっかり大きくする。
+     左右paddingも広げ、指が隣のボタンに誤って触れにくくする。
+     ※横隙間を詰める要望により、左右paddingは18px→10pxに縮小
+     （タップ領域自体は上下paddingで確保しているため、視認性・
+     操作性への影響は小さい）。 */
   .pcv2-icon-item {
-    flex-direction: row;
     flex-shrink: 0;
-    padding: 10px 14px;
     gap: 8px;
+    padding: 12px 10px;
+  }
+
+  /* Seekbarボタンは、PC幅では非表示にしていた(前掲のPC幅共通スタイル)が、
+     SP幅ではここで表示に戻す。閉じる手段として先頭に置く。 */
+  .pcv2-icon-item[data-panel-id="seekbar"] {
+    display: flex;
+  }
+
+  .pcv2-icon-item svg {
+    width: 26px;
+    height: 26px;
+  }
+
+  .pcv2-icon-item span {
+    font-size: 12px;
   }
 
   .pcv2-icon-item.active::before {
-    left: 0;
-    right: 0;
-    top: 0;
-    bottom: auto;
+    left: 8px;
+    right: 8px;
+    top: auto;
+    bottom: 0;
     width: auto;
     height: 2px;
   }
 
+  /* アイコンバー下段（Keyboard/Color）は縦積み専用の仕切りだったため、
+     横並びでは仕切り線ではなく単に他のアイコンと横に並べ、間隔だけ空ける。 */
   #pcV2IconBarSpacer {
     display: none;
   }
@@ -444,31 +537,52 @@ body.pc-v2-active #pcV2Root {
     padding-top: 0;
     padding-left: 8px;
     margin-left: 4px;
+    gap: 4px;
   }
 
-  #pcV2IconBarScrollHint {
-    display: flex;
-    position: absolute;
-    right: 0;
-    bottom: 0;
-    order: 5;
+  /* Keyboardボタン（Keyboard Shortcuts一覧）はSP幅では非表示にする。
+     PC版では常時表示のパネル群の1つとして有用だが、SP幅の下部タブ
+     バーではスペースを圧迫するうえ利用頻度も低いための対応。
+     PC/SP共通のJSコード(ICON_ITEMS下段グループ)からは削除せず、
+     ここでCSSのみ非表示にすることで、PC版の表示・機能には一切
+     影響しないようにしている。 */
+  .pcv2-icon-item[data-panel-id="keyboard"] {
+    display: none;
   }
 
-  /* パネル：通常は非表示、.pcv2-panel-open時のみヘッダー直下〜下部
-     バー直上を覆うオーバーレイとして表示する。 */
+  /* パネル：通常は非表示。#pcV2Layoutに.pcv2-panel-openが付いている間だけ、
+     ヘッダー直下から下部バー直上までを覆う全面オーバーレイとして表示する。 */
   #pcV2Panel {
     display: none;
-    position: absolute;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: var(--pcv2-bottom-bars-height, 140px);
-    z-index: 50;
-    background: #0a0a0c;
-    border-right: none;
   }
 
   #pcV2Layout.pcv2-panel-open #pcV2Panel {
     display: flex;
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    /* アイコンバー(#pcV2IconBar)の高さ分だけ空け、パネル展開中も
+       アイコンバー（閉じる手段）が隠れず操作できるようにする
+       （bottom: 0だと#pcV2Layout全体を覆ってしまい、元の画面に
+       戻れなくなるバグがあった）。 */
+    bottom: 70px;
+    z-index: 100;
+    width: 100%;
+    border-right: none;
+    background: #0a0a0c;
   }
+}
+
+
+/* ============================================================
+   【旧style-core-pc.cssより統合】
+   マーカーが増えてパネルの高さがビューポートを超えると、ページ全体の右端に
+   ブラウザ標準の縦スクロールバーが出現し、中身が少ない時は消える。
+   このスクロールバーの分の横幅(十数px)が出たり消えたりすることで、
+   コンテンツ全体が左右にガタついて見えるため、スクロールバーの有無に
+   関わらず常にその分の余白を確保しておく(stable)ことでガタつきをなくす。
+   ============================================================ */
+html {
+  scrollbar-gutter: stable;
 }
