@@ -6,6 +6,14 @@
    完全コピー）側に既にあるため、ここでは追加分のみを実装する。
    ============================================================ */
 
+/* メーターの3段階色分け（ジャスト/もう少し/離れてる）で使う「もう少し」用の
+   色。ジャストは既存の--note-in、離れてるは既存の--danger（style-core.css）
+   を流用し、この中間色だけQNPITCH側で新たに定義する。 */
+:root {
+  --note-close: #f5a623;
+  --note-close-glow: rgba(245, 166, 35, 0.35);
+}
+
 /* --- .mini-reset-btn（QNPLAYERのstyle-controls.cssから該当部分のみ移植） --- */
 .mini-reset-btn {
   flex-shrink: 0;
@@ -188,25 +196,29 @@
   color: #6b6b7b;
   margin-top: 4px;
 }
-.pitch-meter-wrap[data-state="flat"] .pitch-cents-display { color: var(--note-flat); }
-.pitch-meter-wrap[data-state="sharp"] .pitch-cents-display { color: var(--note-sharp); }
-.pitch-meter-wrap[data-state="in"] .pitch-cents-display,
-.pitch-meter-wrap[data-state="perfect"] .pitch-cents-display { color: var(--note-in); }
-.pitch-meter-wrap[data-state="flat"] .pitch-note-display { color: var(--note-flat); }
-.pitch-meter-wrap[data-state="sharp"] .pitch-note-display { color: var(--note-sharp); }
-.pitch-meter-wrap[data-state="in"] .pitch-note-display { color: var(--note-in); }
-.pitch-meter-wrap[data-state="perfect"] .pitch-note-display {
+/* メーターの色分け：ジャスト(±5¢以内)/もう少し(±20¢以内)/離れてる(それ以外)の
+   3段階。針・音名・周波数・セント表示すべてに適用する
+   （以前は周波数表示だけ色分け対象から漏れていた）。 */
+.pitch-meter-wrap[data-state="just"] .pitch-freq-display,
+.pitch-meter-wrap[data-state="just"] .pitch-cents-display { color: var(--note-in); }
+.pitch-meter-wrap[data-state="close"] .pitch-freq-display,
+.pitch-meter-wrap[data-state="close"] .pitch-cents-display { color: var(--note-close); }
+.pitch-meter-wrap[data-state="far"] .pitch-freq-display,
+.pitch-meter-wrap[data-state="far"] .pitch-cents-display { color: var(--danger); }
+
+.pitch-meter-wrap[data-state="just"] .pitch-note-display {
   color: var(--note-in);
   text-shadow: 0 0 16px var(--note-in-glow);
 }
-.pitch-meter-wrap[data-state="flat"] .pitch-needle line,
-.pitch-meter-wrap[data-state="flat"] .pitch-needle circle { stroke: var(--note-flat); fill: var(--note-flat); }
-.pitch-meter-wrap[data-state="sharp"] .pitch-needle line,
-.pitch-meter-wrap[data-state="sharp"] .pitch-needle circle { stroke: var(--note-sharp); fill: var(--note-sharp); }
-.pitch-meter-wrap[data-state="in"] .pitch-needle line,
-.pitch-meter-wrap[data-state="perfect"] .pitch-needle line { stroke: var(--note-in); }
-.pitch-meter-wrap[data-state="in"] .pitch-needle circle,
-.pitch-meter-wrap[data-state="perfect"] .pitch-needle circle { fill: var(--note-in); }
+.pitch-meter-wrap[data-state="close"] .pitch-note-display { color: var(--note-close); }
+.pitch-meter-wrap[data-state="far"] .pitch-note-display { color: var(--danger); }
+
+.pitch-meter-wrap[data-state="just"] .pitch-needle line,
+.pitch-meter-wrap[data-state="just"] .pitch-needle circle { stroke: var(--note-in); fill: var(--note-in); }
+.pitch-meter-wrap[data-state="close"] .pitch-needle line,
+.pitch-meter-wrap[data-state="close"] .pitch-needle circle { stroke: var(--note-close); fill: var(--note-close); }
+.pitch-meter-wrap[data-state="far"] .pitch-needle line,
+.pitch-meter-wrap[data-state="far"] .pitch-needle circle { stroke: var(--danger); fill: var(--danger); }
 
 /* --- 表示パターン2：ギターチューナー式 --- */
 .pitch-gm-wrap {
@@ -245,19 +257,28 @@
   background: #33333d;
 }
 .pitch-gm-dot.active {
-  background: var(--note-sharp);
+  background: var(--danger);
 }
-.pitch-gm-wrap[data-state="in"] .pitch-gm-dot-center.active,
-.pitch-gm-wrap[data-state="perfect"] .pitch-gm-dot-center.active {
+.pitch-gm-wrap[data-state="just"] .pitch-gm-dot.active,
+.pitch-gm-wrap[data-state="just"] .pitch-gm-dot-center.active {
   background: var(--note-in);
   box-shadow: 0 0 12px var(--note-in-glow);
 }
-.pitch-gm-wrap[data-state="flat"] .pitch-gm-dot.active {
-  background: var(--note-flat);
+.pitch-gm-wrap[data-state="close"] .pitch-gm-dot.active,
+.pitch-gm-wrap[data-state="close"] .pitch-gm-dot-center.active {
+  background: var(--note-close);
 }
-.pitch-gm-wrap[data-state="sharp"] .pitch-gm-dot.active {
-  background: var(--note-sharp);
+.pitch-gm-wrap[data-state="far"] .pitch-gm-dot.active,
+.pitch-gm-wrap[data-state="far"] .pitch-gm-dot-center.active {
+  background: var(--danger);
 }
+/* 音名・周波数表示も同じ3段階に連動させる（以前は無色のままだった）。 */
+.pitch-gm-wrap[data-state="just"] .pitch-gm-note-display,
+.pitch-gm-wrap[data-state="just"] .pitch-gm-freq { color: var(--note-in); }
+.pitch-gm-wrap[data-state="close"] .pitch-gm-note-display,
+.pitch-gm-wrap[data-state="close"] .pitch-gm-freq { color: var(--note-close); }
+.pitch-gm-wrap[data-state="far"] .pitch-gm-note-display,
+.pitch-gm-wrap[data-state="far"] .pitch-gm-freq { color: var(--danger); }
 .pitch-gm-labels {
   display: flex;
   justify-content: space-between;

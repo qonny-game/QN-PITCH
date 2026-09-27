@@ -158,6 +158,15 @@ body.pc-v2-active > .app-container {
 }
 
 
+/* Viewボタン（QNPITCH固有、id="mainview"。波形/メーターが見える基本画面に
+   戻るショートカット）も、Seekbarと同じ理由でPC幅では意味を持たない
+   （常時パネル表示で、押さなくてもメイン画面は既に見えているため）。
+   SP幅側のメディアクエリで表示に戻す。 */
+.pcv2-icon-item[data-panel-id="mainview"] {
+  display: none;
+}
+
+
 #pcV2IconBarSpacer {
   flex: 1;
 }
@@ -503,6 +512,12 @@ body.pc-v2-active #qnMenuMount {
   /* Seekbarボタンは、PC幅では非表示にしていた(前掲のPC幅共通スタイル)が、
      SP幅ではここで表示に戻す。閉じる手段として先頭に置く。 */
   .pcv2-icon-item[data-panel-id="seekbar"] {
+    display: flex;
+  }
+
+  /* Viewボタン（mainview）も、PC幅で隠した分をSP幅ではここで表示に戻す
+     （閉じる手段として先頭に置く、Seekbarボタンと同じ扱い）。 */
+  .pcv2-icon-item[data-panel-id="mainview"] {
     display: flex;
   }
 

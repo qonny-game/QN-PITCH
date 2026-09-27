@@ -84,6 +84,17 @@ window.QNPitch = window.QNPitch || {};
     return arr;
   })();
 
+  // ==================== 音程ズレの3段階判定（ジャスト/もう少し/離れてる） ====================
+  // Gauge・Guitar Meter両方の色分け（針・ドット・音名・周波数・セント表示）を
+  // この1箇所の判定に統一する。しきい値は対応するCSS側の
+  // data-state="just"/"close"/"far" と一致させること（style-mode-tuner.css参照）。
+  function tuningStateFromCents(cents) {
+    const abs = Math.abs(cents);
+    if (abs <= 5) return 'just';
+    if (abs <= 20) return 'close';
+    return 'far';
+  }
+
   // ==================== メイン表示パターンのレジストリ ====================
   const displayStyles = {};
   function registerDisplayStyle(id, def) {
@@ -173,11 +184,7 @@ window.QNPitch = window.QNPitch || {};
       const targetAngle = (clamped / 50) * 80;
       if (needle) needle.style.transform = `rotate(${targetAngle}deg)`;
 
-      let state = 'in';
-      if (reading.cents < -6) state = 'flat';
-      else if (reading.cents > 6) state = 'sharp';
-      else if (reading.cents >= -5 && reading.cents <= 5) state = 'perfect';
-      if (meterWrap) meterWrap.dataset.state = state;
+      if (meterWrap) meterWrap.dataset.state = tuningStateFromCents(reading.cents);
     },
     reset() {
       const noteDisplay = document.getElementById('pitchNoteDisplay');
@@ -194,8 +201,10 @@ window.QNPitch = window.QNPitch || {};
   });
 
   // ---------- 表示パターン2：ギターチューナー式 ----------
-  const GUITAR_STEP_CENTS = 10;
-  const GUITAR_STEPS = 5;
+  // 【メモリ倍増】ユーザー要望により左右の目盛り本数を倍にした
+  // （5段階±50セント刻み10 → 10段階±50セント刻み5、範囲は据え置き）。
+  const GUITAR_STEP_CENTS = 5;
+  const GUITAR_STEPS = 10;
   registerDisplayStyle('guitar-meter', {
     label: 'Guitar Meter',
     render(container) {
@@ -239,11 +248,7 @@ window.QNPitch = window.QNPitch || {};
         d.classList.toggle('active', lit || dStep === 0);
       });
 
-      let state = 'in';
-      if (reading.cents < -6) state = 'flat';
-      else if (reading.cents > 6) state = 'sharp';
-      else if (reading.cents >= -5 && reading.cents <= 5) state = 'perfect';
-      wrap.dataset.state = state;
+      wrap.dataset.state = tuningStateFromCents(reading.cents);
     },
     reset() {
       const wrap = document.getElementById('pitchGmWrap');

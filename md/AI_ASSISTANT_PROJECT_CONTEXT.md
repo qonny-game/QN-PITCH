@@ -6,7 +6,7 @@ QNPITCH（QNシリーズの「チューナー＋ピッチ検出」統合ブラ�
 該当セクションを確認することで、同じ調査・同じ失敗を繰り返さない
 ようにする。
 
-**現在のステータス：v1.0.5。TUNERMODE（Mic Tuner・Tone Generator・
+**現在のステータス：v1.0.6。TUNERMODE（Mic Tuner・Tone Generator・
 Sensitivity・Display）・PITCHMODE（ピッチロール・REC/Play/Save/Clear・
 フィルタ・Recordings一覧）の基本機能が動作する状態。直近のセッションは
 トークン消費を抑えるため、動作確認（プレビュー生成・構文チェック・
@@ -485,6 +485,41 @@ v1.0.3でユーザーの明示的な指示により、`pitch-ui-pc-v2.js`の`bui
 ラベルが「Rec」→「Stop」に切り替わる（`updateHeaderMicBtn()`関数が
 ヘッダーボタンとRecボタン両方の見た目を一括更新する設計、関数名は
 歴史的経緯でヘッダー由来のままだが両方を面倒見ている点に注意）。
+
+### 2-15.【v1.0.6】PC幅のViewボタン非表示／Guitar Meter目盛り倍増／メーター3段階色分け
+ユーザー指示による3点セットの修正。
+- **Viewボタン（`id="mainview"`）をPC幅で非表示**：もともとQNPLAYERの
+  `seekbar`ボタン（SP幅のパネルオーバーレイを閉じる手段）と同じ型で、
+  PC幅では常時パネル表示のため「閉じる」概念自体が無く押す意味が無い。
+  `seekbar`が既にPC幅で`display:none`・SP幅の`@media`で`display:flex`
+  に戻す、という同じパターンを踏襲し、`style-layout-pc-v2.css`に
+  `[data-panel-id="mainview"]`用の対になるルールを追加した（`seekbar`の
+  ルールのすぐ下・SP幅ブロック内のすぐ下にそれぞれ配置）。
+- **Guitar Meterの目盛りを左右とも倍増**：`pitch-mode-tuner.js`の
+  `GUITAR_STEPS`（5→10）・`GUITAR_STEP_CENTS`（10→5）を変更。
+  ±50セントの範囲・ドットのCSS寸法(`style-mode-tuner.css`の
+  `.pitch-gm-dot`等)はそのまま、本数だけ11本→21本に増えた
+  （中央±50セントの合計幅は変わらないため、既存のCSS上限
+  `max-width:360px`に対して十分収まる。CSS側の変更は不要だった）。
+- **TUNERのメーター（Gauge・Guitar Meter）を3段階で色分け**：従来は
+  「flat/sharp/in/perfect」という4値のズレ方向つき判定で、かつ
+  周波数表示（`.pitch-freq-display`/`.pitch-gm-freq`）とGuitar Meterの
+  音名表示（`.pitch-gm-note-display`）には色分けが一切当たっていなかった
+  （見た目上「色付いていない」とユーザーに見えていた原因）。
+  `pitch-mode-tuner.js`に`tuningStateFromCents(cents)`という共通判定
+  関数を新設し、`abs(cents) <= 5`を`"just"`（ジャスト）、`<= 20`を
+  `"close"`（もう少し）、それ以外を`"far"`（離れてる）の3値へ統一。
+  Gauge/Guitar Meter双方の`update()`はこの関数の戻り値をそのまま
+  `dataset.state`に設定するだけにした。`style-mode-tuner.css`側は
+  `data-state="just"/"close"/"far"`に対応するルールへ全面差し替えし、
+  針・ドット・音名・周波数・セント表示のすべてに色を適用した。
+  配色は「ジャスト＝既存の`--note-in`」「離れてる＝`style-core.css`の
+  `--danger`」を流用し、「もう少し」用の中間色だけ
+  `style-mode-tuner.css`冒頭の`:root`に`--note-close`として新規定義した
+  （既存の`--note-flat`/`--note-sharp`は、Gaugeの背景ゾーン弧
+  `.pitch-gauge-zone-flat`/`-sharp`という「ズレの方向を示す静的な
+  背景」専用として引き続き残っており、読み取り状態の色付けとは
+  もう連動していない点に注意）。
 
 ---
 
